@@ -1,0 +1,5 @@
+default-idempotent-success
+release-age-disable-success
+prerequisite-failure
+version-collision-failure
+unsupported-platform-failure

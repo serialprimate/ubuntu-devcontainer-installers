@@ -1,0 +1,7 @@
+default-account-replacement-success
+multiple-collision-success
+collision-safety-failure
+missing-group-failure
+idempotent-sudo-success
+non-root-failure
+unsupported-platform-failure

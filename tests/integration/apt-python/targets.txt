@@ -1,0 +1,4 @@
+default-idempotent-success
+runtime-only-success
+invalid-input-failure
+unsupported-platform-failure

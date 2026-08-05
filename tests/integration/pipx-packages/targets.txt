@@ -1,0 +1,5 @@
+multiple-package-sets-success
+cooldown-disable-success
+prerequisite-failure
+unsupported-pipx-version-failure
+unsupported-platform-failure

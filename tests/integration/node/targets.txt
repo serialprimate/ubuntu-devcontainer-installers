@@ -1,0 +1,5 @@
+packaged-lts-idempotent-success
+current-success
+prerequisite-failure
+major-collision-failure
+unsupported-platform-failure

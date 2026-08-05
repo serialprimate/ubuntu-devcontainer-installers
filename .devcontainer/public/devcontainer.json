@@ -1,0 +1,43 @@
+{
+    "name": "${localWorkspaceFolderBasename}-public",
+    "image": "ubuntu:latest",
+    "customizations": {
+        "vscode": {
+            "settings": {
+            },
+            "extensions": [
+                "mads-hartmann.bash-ide-vscode",
+                "ms-azuretools.vscode-containers",
+                "github.vscode-github-actions"
+            ]
+        }
+    },
+    "overrideFeatureInstallOrder": [
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/apt-packages",
+        "ghcr.io/devcontainers/features/docker-in-docker",
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/node",
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/npm-packages",
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/user"
+    ],
+    "features": {
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/apt-packages:0.1.0-dev": {
+            "aptPackages": "ca-certificates, curl, fd-find, git, gnupg, jq, less, openssh-client, ripgrep, shellcheck, shfmt, tree, unzip, yq, zip"
+        },
+        "ghcr.io/devcontainers/features/docker-in-docker:4": {
+            "version": "latest",
+            "moby": false,
+            "dockerDashComposeVersion": "none"
+        },
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/node:0.1.0-dev": {
+            "version": "lts"
+        },
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/npm-packages:0.1.0-dev": {
+            "npmPackages": "markdownlint-cli2"
+        },
+        "ghcr.io/serialprimate/ubuntu-devcontainer-features/user:0.1.0-dev": {
+            "username": "dev",
+            "groups": "docker"
+        }
+    },
+    "remoteUser": "dev"
+}
