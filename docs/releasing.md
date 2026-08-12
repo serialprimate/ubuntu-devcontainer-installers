@@ -2,16 +2,16 @@
 
 GitHub Actions is the only normal publication path. A developer must not manually push a routine release.
 
-## Repository preparation
+## Repository configuration
 
-Before approving the first release, repository administrators must:
+The first publication established these required repository settings:
 
-1. allow GitHub Actions to create and write repository-associated GHCR packages;
-2. create a protected `release` environment and require the project’s chosen approvers;
-3. confirm the workflow permission policy permits the job-level `contents: write` and `packages: write` permissions; and
-4. ensure the resulting `ubuntu-devcontainer-installers` package is publicly readable.
+1. GitHub Actions can create and write the repository-associated GHCR package;
+2. the protected `release` environment requires the project’s chosen approvers;
+3. the workflow permission policy permits the job-level `contents: write` and `packages: write` permissions; and
+4. the `ubuntu-devcontainer-installers` package is publicly readable.
 
-GHCR creates a package as private on its first publication. For `0.1.0`, an administrator must change the newly created package visibility to public in GitHub’s package settings, then rerun the failed release job if its anonymous-pull check reached that setting first. This visibility bootstrap does not replace or bypass the workflow push. Later releases verify anonymous digest-pinned access automatically.
+Administrators must preserve these settings. Release `0.1.0` completed the one-time GHCR visibility bootstrap; every later release verifies anonymous digest-pinned access automatically.
 
 ## Normal release
 

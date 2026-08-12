@@ -618,6 +618,8 @@ Outcome:
 
 ### Milestone 6 — OCI release automation and first publication
 
+**Status:** Complete. Workflow-produced release `0.1.0` is publicly available from GHCR with exact, minor and major tags, immutable digest and qualification metadata.
+
 Outcome:
 
 * the complete first release candidate installer set from section 7.1;

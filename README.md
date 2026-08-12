@@ -3,7 +3,7 @@
 Reusable Bash installers for constructing Ubuntu 26.04 development-container images.
 
 > [!IMPORTANT]
-> The complete `0.1.0` installer candidate and OCI release automation are implemented. Until the approved `0.1.0` GitHub Release workflow succeeds, consume the installers from the source tree rather than assuming that a GHCR tag exists.
+> Release `0.1.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
 
 ## Intended audience and scope
 
@@ -31,17 +31,17 @@ Installers must reject unsupported operating systems and Ubuntu releases rather 
 
 ## Installer status
 
-The complete first release candidate is available from the source tree and is packaged together by the OCI build:
+The complete first release is available from the source tree and the published OCI image:
 
 | Installer | Purpose | Status |
 | --- | --- | --- |
-| [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Release candidate |
-| [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Release candidate |
-| [`node`](installers/node/README.md) | Install a selected supported Node.js version | Release candidate |
-| [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Release candidate |
-| [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Release candidate |
-| [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Release candidate |
-| [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Release candidate |
+| [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Released in 0.1.0 |
+| [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Released in 0.1.0 |
+| [`node`](installers/node/README.md) | Install a selected supported Node.js version | Released in 0.1.0 |
+| [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Released in 0.1.0 |
+| [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
+| [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Released in 0.1.0 |
+| [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Released in 0.1.0 |
 
 The following installers are deferred until their dependencies or security contracts are established:
 
@@ -92,7 +92,7 @@ Risky behaviour must never become an implicit fallback when a secure operation f
 
 The release artefact is one small `FROM scratch` OCI image containing the complete installer collection, shared libraries, documentation and licence. It is not a runtime image. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
 
-When the referenced release is published, a consuming Dockerfile can copy the collection from an exact version:
+A consuming Dockerfile can copy the collection from the published exact version:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -127,7 +127,7 @@ For reproducible builds, use this digest-pinned `COPY` fragment:
 
 ```dockerfile
 # Copies the digest-pinned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:<digest> \
+COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:5f0ce9394412e283ec549890a586f9489e91369f5d50cf348f819eda358da84d \
     /ubuntu-devcontainer-installers \
     /opt/ubuntu-devcontainer-installers
 ```
@@ -199,4 +199,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Milestones 1 through 5 are complete. The complete first release candidate, `FROM scratch` image, packaged-artefact tests and GitHub Actions CI and release workflows required by Milestone 6 are implemented. Milestone 6 remains pending until the approved workflow publishes and records `0.1.0` in GHCR. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
+Milestones 1 through 6 are complete. Release `0.1.0` was produced by the approved workflow and is publicly available from GHCR by exact version, convenience tags and immutable digest. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
