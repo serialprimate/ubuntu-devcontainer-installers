@@ -98,13 +98,13 @@ Development takes place inside a predefined Dev Container that already provides:
 * Docker Buildx where required;
 * the permissions required to run test containers.
 
-The initial Dev Container may use:
+The initial repository Dev Container profiles use:
 
 ```text
 ghcr.io/devcontainers/features/docker-in-docker:4
 ```
 
-This is a temporary bootstrap dependency and is not part of the installer runtime or published OCI artefact.
+This is a temporary bootstrap dependency and is not part of the installer runtime or published OCI artefact. It remains the development bootstrap until the project-owned Docker-in-Docker installer has passed the qualification described in section 5 and the candidate Dev Container profile has replaced it.
 
 The project must not depend on the implementation details of that Feature. Project scripts may assume only that a usable Docker endpoint is available.
 
@@ -118,9 +118,7 @@ before integration tests are started.
 
 ## 5. Docker-in-Docker replacement direction
 
-A project-owned Docker-in-Docker installer is a planned follow-on outcome.
-
-It will eventually replace the external `docker-in-docker:4` Feature in this repository’s Dev Container configuration.
+A project-owned Docker-in-Docker installer is a post-MVP release outcome required before a candidate Dev Container profile can replace the external `docker-in-docker:4` Feature in this repository’s Dev Container configuration. The candidate profile must consume the published installer OCI image by immutable digest; it must not copy installer code from the workspace or use custom Dev Container Features.
 
 The replacement must prioritise:
 
@@ -445,9 +443,13 @@ Consumers should be instructed to pin either:
 
 A floating `latest` tag must not be used in reproducible examples.
 
-## 24. Release verification
+## 24. Release verification and publication
 
-Before publication:
+Every release is produced by the repository's GitHub Actions release workflow, not by a developer's manual `docker push`. The project is hosted at `https://github.com/serialprimate/ubuntu-devcontainer-installers`; its OCI package name is `ghcr.io/serialprimate/ubuntu-devcontainer-installers`.
+
+The workflow must run only for an explicit, approved release event associated with an exact SemVer Git tag. It must derive the exact, minor and applicable major OCI tags from that tag, build once, run verification against the built candidate, publish the verified image to GHCR, and record the pushed digest and source revision in the release metadata. The workflow must authenticate to GHCR with its repository-scoped `GITHUB_TOKEN` and the minimum required permissions, including `contents: read` and `packages: write`; it must not require a long-lived registry credential. The package must be publicly readable so a digest-pinned candidate Dev Container can be built without registry credentials. A command-line push is permitted only as an explicitly documented recovery procedure after a workflow failure and must use the same tag, labels, verification and release-record requirements.
+
+Before publication, the release workflow must:
 
 1. run all unit tests;
 2. run all integration tests against Ubuntu 26.04;
@@ -456,7 +458,8 @@ Before publication:
 5. rerun representative integration tests from the packaged artefact;
 6. verify expected files and permissions;
 7. inspect OCI metadata;
-8. record the generated digest.
+8. publish the verified exact, minor and applicable major tags to GHCR; and
+9. record the generated digest, source revision and qualification information in the release metadata.
 
 The source-tree tests alone are insufficient because packaging errors could omit or relocate required libraries.
 
@@ -504,21 +507,13 @@ The `install-script` migration remains deferred until an integrity contract, inc
 
 Where the underlying package manager supports them, the MVP should preserve configurable supply-chain delay capabilities relevant to npm, pip or pipx. Delivered controls and defaults must be supported by the selected package-manager version, documented and tested. Recurring implementation requirements are defined in [`CONVENTIONS.md`](CONVENTIONS.md#minimum-release-age-controls).
 
-## 28. CI direction
+## 28. CI and release automation
 
-The MVP repository should support CI, but the initial project definition does not require reproducing the source repository’s workflows.
+GitHub Actions is the canonical CI and release mechanism. It must use the same project-owned test entry points and OCI Dockerfile that developers use locally; local Docker-in-Docker testing remains a development workflow, not a substitute for independent release qualification.
 
-A minimal CI implementation should:
+The continuous-integration workflow must run unit tests, integration tests using an isolated Docker daemon or ephemeral runner, build the OCI artefact, and test the packaged artefact. It must not publish images or receive package-write credentials when running untrusted pull-request code.
 
-* run unit tests;
-* run integration tests using an isolated Docker daemon or ephemeral runner;
-* build the OCI artefact;
-* test the packaged artefact;
-* publish only from an approved release event.
-
-Untrusted pull-request code must not receive registry credentials.
-
-Use ephemeral CI runners for release qualification. Docker-in-Docker inside the local Dev Container is primarily a reproducible development workflow, not a substitute for CI isolation.
+The release workflow defined in section 24 must run on an ephemeral GitHub-hosted runner and publish only after the approved release event. It must use `GITHUB_TOKEN`, with job-level minimum permissions, rather than a personal access token. Before relying on the workflow, verify repository Actions settings permit the token to create and write GHCR packages and that the published package is associated with this repository. Pin third-party workflow actions to reviewed immutable commit SHAs and maintain them as dependencies under the currency and maintenance convention.
 
 ## 29. Explicit non-goals
 
@@ -544,16 +539,14 @@ The MVP does not provide:
 
 Potential later work includes:
 
-1. project-owned Docker-in-Docker installer;
-2. migration of the repository Dev Container away from `docker-in-docker:4`;
-3. Ubuntu `linux/arm64` qualification;
-4. dedicated Codex and Pi installers where justified;
-5. Playwright installer;
-6. integrity-controlled remote installer or specific installer for a demonstrated script-only tool;
-7. generated Dev Container Feature adapters;
-8. generated Feature tests;
-9. additional Ubuntu LTS releases;
-10. per-installer OCI artefacts if consumers require smaller payloads.
+1. Ubuntu `linux/arm64` qualification;
+2. dedicated Codex and Pi installers where justified;
+3. Playwright installer;
+4. integrity-controlled remote installer or specific installer for a demonstrated script-only tool;
+5. generated Dev Container Feature adapters;
+6. generated Feature tests;
+7. additional Ubuntu LTS releases; and
+8. per-installer OCI artefacts if consumers require smaller payloads.
 
 Generated Features must remain adapters over the canonical installer scripts. They must not become a second implementation.
 
@@ -623,29 +616,31 @@ Outcome:
 * Ubuntu 26.04 compatibility explicitly tested;
 * prerequisite composition documented.
 
-### Milestone 6 — OCI publication candidate
+### Milestone 6 — OCI release automation and first publication
 
 Outcome:
 
 * the complete first release candidate installer set from section 7.1;
 * `FROM scratch` OCI image;
 * source-tree and packaged-artefact tests;
-* Semantic Versioning;
-* release metadata;
-* exact-version and digest-pinning examples;
-* release candidate `0.1.0`.
+* GitHub Actions continuous-integration and release workflows that satisfy sections 24 and 28;
+* Semantic Versioning, release metadata, exact-version and digest-pinning examples; and
+* workflow-produced release candidate `0.1.0` in GHCR.
 
-### Post-MVP milestone 1 — Docker-in-Docker replacement investigation
+No manual GHCR publication is part of the normal release process. Establishing the workflow before `0.1.0` prevents a separate manual tag, package-linkage and credential process that later automation would need to replace.
+
+### Post-MVP milestone 1 — Docker-in-Docker installer and candidate Dev Container profile
 
 Outcome:
 
-* requirements and threat model;
-* Ubuntu 26.04 Docker installation prototype;
-* ephemeral daemon-storage implementation;
-* daemon lifecycle tests;
-* qualification plan for replacing the external Feature.
+* requirements and threat model for a Docker-in-Docker installer;
+* an ordinary Ubuntu 26.04 Docker-in-Docker installer with explicit daemon startup, shutdown, privilege and ephemeral-storage behaviour;
+* isolated installation and daemon-lifecycle tests;
+* a test run of the complete project suite through the installed daemon;
+* workflow-produced `0.2.0`, the next minor release because it adds the Docker-in-Docker installer to the collection; and
+* a tracked `.devcontainer/candidate/devcontainer.json` profile that consumes the `0.2.0` installer OCI image by immutable digest, installs its prerequisites and Docker-in-Docker through explicit installer invocations, configures only the documented necessary runtime privileges, and replaces the external Docker-in-Docker and project custom Features.
 
-This work does not block `0.1.0`. It should begin before the MVP only if the external bootstrap Feature prevents reliable development or testing.
+The existing Feature-based profiles remain bootstrap profiles until this milestone passes. The candidate profile is not eligible to replace them until it has successfully built and run the complete project suite through its installed daemon. This work does not block `0.1.0`, but it is required before the project can claim a candidate profile independent of the external Docker-in-Docker Feature.
 
 ### Post-MVP milestone 2 — Installation-script handling investigation
 
@@ -681,6 +676,8 @@ The MVP is accepted when all of the following are true:
 * project cleanup affects only project-labelled resources;
 * an OCI installer image can be built from `scratch`;
 * scripts copied from that OCI image pass packaged-artefact tests;
+* GitHub Actions runs continuous integration and produces approved releases in GHCR without a long-lived registry credential;
+* release metadata records the published immutable digest and source revision;
 * a consumer Dockerfile can invoke the same installer multiple times;
 * release documentation explains exact-version and digest pinning;
 * project and installer documentation identify the expert-developer audience and development-only use restriction;
