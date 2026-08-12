@@ -1,0 +1,38 @@
+name: Continuous integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Source and OCI verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out the source revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify the Docker endpoint
+        run: docker info
+
+      - name: Run source-tree tests
+        run: ./scripts/test.sh
+
+      - name: Build the OCI candidate once
+        run: ./scripts/build-oci.sh ubuntu-devcontainer-installers:ci 0.0.0 "${GITHUB_SHA}"
+
+      - name: Verify OCI metadata and packaged artefact
+        run: ./scripts/test-oci.sh ubuntu-devcontainer-installers:ci 0.0.0 "${GITHUB_SHA}"

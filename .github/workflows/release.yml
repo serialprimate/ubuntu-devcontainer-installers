@@ -1,0 +1,136 @@
+name: Publish release
+
+on:
+  release:
+    types:
+      - published
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish approved release
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment:
+      name: release
+    permissions:
+      contents: write
+      packages: write
+    env:
+      IMAGE: ghcr.io/serialprimate/ubuntu-devcontainer-installers
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Check out the tagged source revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Validate the approved release identity
+        run: |
+          mapfile -t release_tags < <(./scripts/release-tags.sh "${RELEASE_TAG}")
+          source_revision="$(git rev-parse HEAD)"
+          test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" = "${source_revision}"
+          printf 'SOURCE_REVISION=%s\n' "${source_revision}" >> "${GITHUB_ENV}"
+          printf '%s\n' "${release_tags[@]}" > "${RUNNER_TEMP}/release-tags.txt"
+
+      - name: Verify the Docker endpoint
+        run: docker info
+
+      - name: Run source-tree qualification
+        run: |
+          set -o pipefail
+          ./scripts/test.sh |& tee "${RUNNER_TEMP}/source-tests.log"
+
+      - name: Build the release candidate once
+        run: |
+          ./scripts/build-oci.sh \
+              "${IMAGE}:${RELEASE_TAG}" \
+              "${RELEASE_TAG}" \
+              "${SOURCE_REVISION}"
+
+      - name: Verify OCI metadata and packaged artefact
+        run: |
+          set -o pipefail
+          ./scripts/test-oci.sh \
+              "${IMAGE}:${RELEASE_TAG}" \
+              "${RELEASE_TAG}" \
+              "${SOURCE_REVISION}" |& tee "${RUNNER_TEMP}/packaged-tests.log"
+
+      - name: Authenticate to GHCR with the repository token
+        run: |
+          printf '%s' "${GH_TOKEN}" |
+              docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Publish the verified exact and convenience tags
+        id: publish
+        run: |
+          mapfile -t release_tags < "${RUNNER_TEMP}/release-tags.txt"
+          exact_ref="${IMAGE}:${release_tags[0]}"
+          for tag in "${release_tags[@]:1}"; do
+              docker image tag "${exact_ref}" "${IMAGE}:${tag}"
+          done
+          for tag in "${release_tags[@]}"; do
+              docker push "${IMAGE}:${tag}" |& tee "${RUNNER_TEMP}/push-${tag}.log"
+          done
+          digest="$(awk '$2 == "digest:" && $3 ~ /^sha256:/ { print $3 }' \
+              "${RUNNER_TEMP}/push-${release_tags[0]}.log" | tail -n 1)"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'digest=%s\n' "${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify immutable public consumption
+        run: |
+          docker logout ghcr.io
+          mapfile -t release_tags < "${RUNNER_TEMP}/release-tags.txt"
+          for tag in "${release_tags[@]}"; do
+              docker image rm "${IMAGE}:${tag}" >/dev/null 2>&1 || true
+          done
+          docker pull --platform linux/amd64 "${IMAGE}@${{ steps.publish.outputs.digest }}"
+
+      - name: Record qualification and immutable identity
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          mapfile -t release_tags < "${RUNNER_TEMP}/release-tags.txt"
+          ubuntu_digest="$(docker image inspect --format '{{join .RepoDigests ","}}' ubuntu:26.04)"
+          qualification="${RUNNER_TEMP}/qualification-${RELEASE_TAG}.md"
+          {
+              printf '# Release qualification: %s\n\n' "${RELEASE_TAG}"
+              printf -- '- Source revision: `%s`\n' "${SOURCE_REVISION}"
+              printf -- '- OCI image: `%s@%s`\n' "${IMAGE}" "${DIGEST}"
+              printf -- '- OCI tags: `%s`, `%s`, `%s`\n' \
+                  "${release_tags[0]}" "${release_tags[1]}" "${release_tags[2]}"
+              printf -- '- Ubuntu qualification image: `ubuntu:26.04`\n'
+              printf -- '- Ubuntu image digest: `%s`\n' "${ubuntu_digest}"
+              printf -- '- Target architecture: `linux/amd64`\n'
+              printf -- '- Docker version: `%s`\n' "$(docker version --format '{{.Server.Version}}')"
+              printf -- '- Buildx version: `%s`\n' "$(docker buildx version)"
+              printf -- '- Source-tree tests: passed\n'
+              printf -- '- Packaged-artefact tests: passed\n\n'
+              printf '## Complete source-tree test result\n\n```text\n'
+              cat "${RUNNER_TEMP}/source-tests.log"
+              printf '```\n\n## Complete packaged-artefact test result\n\n```text\n'
+              cat "${RUNNER_TEMP}/packaged-tests.log"
+              printf '```\n'
+          } > "${qualification}"
+          gh release upload "${RELEASE_TAG}" "${qualification}" --clobber
+          current_notes="${RUNNER_TEMP}/current-release-notes.md"
+          combined_notes="${RUNNER_TEMP}/release-notes.md"
+          gh release view "${RELEASE_TAG}" --json body --jq '.body // ""' > "${current_notes}"
+          awk '/^## OCI release identity$/ { exit } { print }' \
+              "${current_notes}" > "${combined_notes}"
+          {
+              printf '\n\n## OCI release identity\n\n'
+              printf -- '- Immutable image: `%s@%s`\n' "${IMAGE}" "${DIGEST}"
+              printf -- '- Source revision: `%s`\n' "${SOURCE_REVISION}"
+              printf -- '- Qualification: [`qualification-%s.md`](%s/releases/download/%s/qualification-%s.md)\n' \
+                  "${RELEASE_TAG}" "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+                  "${RELEASE_TAG}" "${RELEASE_TAG}"
+          } >> "${combined_notes}"
+          gh release edit "${RELEASE_TAG}" --notes-file "${combined_notes}"

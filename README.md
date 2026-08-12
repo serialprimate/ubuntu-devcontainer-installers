@@ -3,7 +3,7 @@
 Reusable Bash installers for constructing Ubuntu 26.04 development-container images.
 
 > [!IMPORTANT]
-> Milestone 5 is complete: the core system, Node.js, npm and pipx installers are available from the source tree. The full installer collection and OCI image have not yet been released.
+> The complete `0.1.0` installer candidate and OCI release automation are implemented. Until the approved `0.1.0` GitHub Release workflow succeeds, consume the installers from the source tree rather than assuming that a GHCR tag exists.
 
 ## Intended audience and scope
 
@@ -31,17 +31,17 @@ Installers must reject unsupported operating systems and Ubuntu releases rather 
 
 ## Installer status
 
-The installers delivered through Milestone 5 are available from the source tree. The first release candidate is planned to contain:
+The complete first release candidate is available from the source tree and is packaged together by the OCI build:
 
 | Installer | Purpose | Status |
 | --- | --- | --- |
-| [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Available in source |
-| [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Available in source |
-| [`node`](installers/node/README.md) | Install a selected supported Node.js version | Available in source |
-| [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Available in source |
-| [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Available in source |
-| [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Available in source |
-| [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Available in source |
+| [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Release candidate |
+| [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Release candidate |
+| [`node`](installers/node/README.md) | Install a selected supported Node.js version | Release candidate |
+| [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Release candidate |
+| [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Release candidate |
+| [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Release candidate |
+| [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Release candidate |
 
 The following installers are deferred until their dependencies or security contracts are established:
 
@@ -90,9 +90,9 @@ Risky behaviour must never become an implicit fallback when a secure operation f
 
 ## OCI consumption
 
-The planned release artefact is one small `FROM scratch` OCI image containing the complete installer collection, shared libraries, documentation and licence. It is not a runtime image.
+The release artefact is one small `FROM scratch` OCI image containing the complete installer collection, shared libraries, documentation and licence. It is not a runtime image. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
 
-After the first release, a consuming Dockerfile will be able to copy the collection from a versioned image:
+When the referenced release is published, a consuming Dockerfile can copy the collection from an exact version:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -144,6 +144,8 @@ The collection uses one Semantic Versioning release version. During initial deve
 
 A release must pass source-tree and packaged-artefact tests against Ubuntu 26.04. Qualification records the Ubuntu image digest, target architecture, Docker and BuildKit versions, repository commit and complete test result. The published OCI digest is the immutable release identity.
 
+The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.1.0` publishes `0.1.0`, `0.1` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
+
 ## Repository layout
 
 The implementation foundation and available installers use this structure:
@@ -155,10 +157,12 @@ scripts/           Unit, integration and cleanup entry points
 tests/lib/         Project-owned assertion helpers
 tests/unit/        Tests for pure behaviour
 tests/integration/ Fresh Ubuntu 26.04 container scenarios
+Dockerfile         FROM scratch OCI packaging entry point
+.github/workflows/ Continuous-integration and approved-release automation
 docs/              Detailed project guides
 ```
 
-Packaging entry points and individual installer directories will be added by their corresponding milestones.
+The root `Dockerfile` preserves the tested relationship between installer entry points and shared libraries.
 
 Shared code remains small and must not obscure installer control flow. The packaged layout will preserve the same relative relationship between `installers/` and `lib/` that is tested in the source tree.
 
@@ -195,4 +199,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Milestones 1 through 5 are complete. The documentation baseline, shared Bash helpers, dependency-free test harness and the `apt-packages`, `apt-python`, `user`, `node`, `npm-packages`, `pipx` and `pipx-packages` installers are available. OCI publication preparation is planned for Milestone 6. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
+Milestones 1 through 5 are complete. The complete first release candidate, `FROM scratch` image, packaged-artefact tests and GitHub Actions CI and release workflows required by Milestone 6 are implemented. Milestone 6 remains pending until the approved workflow publishes and records `0.1.0` in GHCR. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).

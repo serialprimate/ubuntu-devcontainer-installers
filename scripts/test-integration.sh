@@ -9,6 +9,11 @@ readonly repository_root
 readonly project_label='io.github.serialprimate.project=ubuntu-devcontainer-installers'
 readonly source_label='org.opencontainers.image.source=https://github.com/serialprimate/ubuntu-devcontainer-installers'
 readonly ubuntu_image='ubuntu:26.04'
+build_source_options=(--pull)
+if [[ -n "${INSTALLER_IMAGE:-}" ]]; then
+    build_source_options=(--build-arg "INSTALLER_IMAGE=${INSTALLER_IMAGE}")
+fi
+readonly -a build_source_options
 run_id="integration-$(date -u +%Y%m%d%H%M%S)-$$-${RANDOM}"
 readonly run_id
 readonly run_label="io.github.serialprimate.test-run=${run_id}"
@@ -50,10 +55,18 @@ if (($# >= 1)); then
 else
     suites=()
     for suite_path in "${repository_root}"/tests/integration/*; do
-        if [[ -d "${suite_path}" ]]; then
-            suites+=("${suite_path##*/}")
+        suite_name="${suite_path##*/}"
+        if [[ -d "${suite_path}" &&
+            ("${suite_name}" != 'packaged-artefact' || -n "${INSTALLER_IMAGE:-}") ]]; then
+            suites+=("${suite_name}")
         fi
     done
+fi
+
+# Packaged scenarios require an explicit candidate and never fall back to source files
+if [[ "${suites[0]:-}" == 'packaged-artefact' && -z "${INSTALLER_IMAGE:-}" ]]; then
+    printf 'integration: error: packaged-artefact requires INSTALLER_IMAGE. Use scripts/test-oci.sh.\n' >&2
+    exit 2
 fi
 
 # Validate each suite and run every selected target independently
@@ -95,7 +108,7 @@ for suite in "${suites[@]}"; do
         image_tag="ubuntu-devcontainer-installers-test:${run_id}-${suite}-${target}"
         log_path="${log_directory}/${suite}-${target}.log"
         if docker build \
-            --pull \
+            "${build_source_options[@]}" \
             --no-cache \
             --platform linux/amd64 \
             --file "${dockerfile}" \

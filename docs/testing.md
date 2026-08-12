@@ -33,6 +33,16 @@ Run one integration target:
 ./scripts/test-integration.sh foundation clean-ubuntu-26-04
 ```
 
+Build and verify a local OCI candidate at the current revision:
+
+```bash
+revision="$(git rev-parse HEAD)"
+./scripts/build-oci.sh ubuntu-devcontainer-installers:test 0.0.0 "${revision}"
+./scripts/test-oci.sh ubuntu-devcontainer-installers:test 0.0.0 "${revision}"
+```
+
+The OCI verifier inspects release metadata and runs the `packaged-artefact` suite after copying the payload from the candidate into fresh Ubuntu 26.04 stages.
+
 Detailed logs are retained under `/tmp/ubuntu-devcontainer-installers/`. The runners print the exact log path for a failed test.
 
 ## Unit suite layout
