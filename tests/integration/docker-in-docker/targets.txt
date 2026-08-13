@@ -1,0 +1,5 @@
+installation-success
+daemon-lifecycle-success
+missing-data-volume-failure
+prerequisite-failure
+unsupported-platform-failure

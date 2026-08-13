@@ -11,6 +11,9 @@ readonly script_directory
 if (($# == 0)); then
     "${script_directory}/test-unit.sh"
     "${script_directory}/test-integration.sh"
+    if [[ "${DIND_QUALIFICATION_ACTIVE:-0}" != '1' ]]; then
+        "${script_directory}/test-docker-in-docker.sh"
+    fi
     exit 0
 fi
 

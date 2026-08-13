@@ -37,6 +37,7 @@ The complete first release is available from the source tree and the published O
 | --- | --- | --- |
 | [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Released in 0.1.0 |
 | [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Released in 0.1.0 |
+| [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon | Available in source; planned for 0.2.0 |
 | [`node`](installers/node/README.md) | Install a selected supported Node.js version | Released in 0.1.0 |
 | [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Released in 0.1.0 |
 | [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
@@ -47,8 +48,7 @@ The following installers are deferred until their dependencies or security contr
 
 - `codex` and `pi`, pending evaluation after generic npm support;
 - `playwright`, pending stable Node and npm installer contracts;
-- `install-script`, as the second post-MVP milestone pending a reviewed integrity and controlled-risk contract; and
-- a project-owned Docker-in-Docker installer, as the first post-MVP milestone.
+- `install-script`, as the second post-MVP milestone pending a reviewed integrity and controlled-risk contract.
 
 A dedicated `search-cli-tools` installer is not planned. Search tools available through npm or pipx can be selected explicitly with the generic package installers. Script-only tools remain deferred until the post-MVP installation-script investigation determines whether a generic or tool-specific integrity-controlled installer is justified.
 
@@ -86,7 +86,7 @@ Because this project is restricted to expert developers in development contexts,
 - the installer emits a prominent warning with actionable advice immediately before using the risky mechanism; and
 - tests cover the secure default, required opt-in, warning and enabled behaviour.
 
-Risky behaviour must never become an implicit fallback when a secure operation fails. See [`PROJECT.md`](PROJECT.md) and [`CONVENTIONS.md`](CONVENTIONS.md) for the complete policy.
+Risky behaviour must never become an implicit fallback when a secure operation fails. See [`PROJECT.md`](PROJECT.md) and [`CONVENTIONS.md`](CONVENTIONS.md) for the complete policy. The Docker-in-Docker privilege boundary and residual risks are detailed in its [threat model](docs/docker-in-docker-threat-model.md).
 
 ## OCI consumption
 
@@ -179,6 +179,7 @@ Use these test interfaces:
 ```bash
 ./scripts/test-unit.sh
 ./scripts/test-integration.sh
+./scripts/test-docker-in-docker.sh
 ./scripts/test.sh
 ./scripts/clean-test-resources.sh
 ```
@@ -199,4 +200,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Milestones 1 through 6 are complete. Release `0.1.0` was produced by the approved workflow and is publicly available from GHCR by exact version, convenience tags and immutable digest. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
+Milestones 1 through 6 are complete. Release `0.1.0` was produced by the approved workflow and is publicly available from GHCR by exact version, convenience tags and immutable digest. The Docker-in-Docker installer and qualification suite for post-MVP milestone 1 are available in source. Workflow publication of `0.2.0` and a digest-pinned candidate Dev Container profile remain release-gated follow-up work. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
