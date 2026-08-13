@@ -38,6 +38,7 @@ The current installer collection is available from the source tree and the publi
 | [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Released in 0.1.0 |
 | [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Released in 0.1.0 |
 | [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon | Released in 0.2.0 |
+| [`github-release`](installers/github-release/README.md) | Install an exact SHA-256-pinned raw GitHub Release executable | Development |
 | [`node`](installers/node/README.md) | Install a selected supported Node.js version | Released in 0.1.0 |
 | [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Released in 0.1.0 |
 | [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
@@ -48,9 +49,9 @@ The following installers are deferred until their dependencies or security contr
 
 - `codex` and `pi`, pending evaluation after generic npm support;
 - `playwright`, pending stable Node and npm installer contracts;
-- `install-script`, as the second post-MVP milestone pending a reviewed integrity and controlled-risk contract.
+- `install-script`, deferred after the [installation-script handling investigation](docs/install-script-investigation.md) found that pinning a bootstrap script does not verify mutable downstream downloads.
 
-A dedicated `search-cli-tools` installer is not planned. Search tools available through npm or pipx can be selected explicitly with the generic package installers. Script-only tools remain deferred until the post-MVP installation-script investigation determines whether a generic or tool-specific integrity-controlled installer is justified.
+A dedicated `search-cli-tools` installer is not planned. Search tools available through npm or pipx can be selected explicitly with the generic package installers. Script-only tools remain deferred. Tools that publish raw GitHub Release executables can use the integrity-controlled `github-release` installer; tools requiring remote bootstrap scripts need a separate future security decision.
 
 ## Installer model
 
@@ -200,4 +201,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Milestones 1 through 6 and post-MVP milestone 1 are complete. Releases `0.1.0` and `0.2.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` includes the Docker-in-Docker installer and its qualification suite. The independently qualified, digest-pinned candidate has replaced the public Dev Container profile. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
+Milestones 1 through 6 and post-MVP milestone 1 are complete. Releases `0.1.0` and `0.2.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` includes the Docker-in-Docker installer and its qualification suite. The independently qualified, digest-pinned candidate has replaced the public Dev Container profile. The completed second post-MVP milestone delivered a narrow `github-release` artifact installer and deferred generic installation-script execution because a pinned bootstrap script cannot guarantee transitive download integrity. No unverified execution mode is approved. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
