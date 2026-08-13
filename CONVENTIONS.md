@@ -26,7 +26,7 @@ Follow the documented audience, use restriction and platform support contract. T
 
 ### Outcome and simplicity
 
-Start from the required observable outcome and applicable acceptance criteria. Choose the simplest cohesive design that satisfies them completely and leaves the affected area clear, consistent and maintainable.
+Start from the required observable outcome and applicable documented requirements. Choose the simplest cohesive design that satisfies them completely and leaves the affected area clear, consistent and maintainable.
 
 Simplicity means minimising conceptual and operational complexity, not minimising the diff, number of files changed or immediate implementation effort. Prefer a broader coordinated improvement when it produces a cleaner design or removes conflicting patterns, duplication or stale material. Do not expand scope without a concrete design or maintenance benefit.
 

@@ -16,18 +16,18 @@ The installers are intended exclusively for development contexts, principally di
 - general-purpose host provisioning; or
 - operators who cannot assess the consequences of installer options.
 
-The canonical product is a collection of small, explicit and tested Ubuntu installation programs. Dockerfiles, OCI distribution and any future Dev Container Features are consumption or packaging mechanisms around those programs.
+The canonical product is a collection of small, explicit and tested Ubuntu installation programs. Dockerfiles, OCI distribution and Dev Container configuration are consumption or packaging mechanisms around those programs.
 
 ## Support scope
 
 The current release supports:
 
 - Ubuntu 26.04 LTS only;
-- `linux/amd64` initially;
+- `linux/amd64`;
 - Bash installers executed during a Docker BuildKit image build; and
 - execution as `root`, unless an installer explicitly documents otherwise.
 
-Installers must reject unsupported operating systems and Ubuntu releases rather than attempting best-effort installation. Ubuntu releases other than 26.04, non-Ubuntu distributions, production provisioning and guaranteed non-root installation are outside the initial scope.
+Installers must reject unsupported operating systems and Ubuntu releases rather than attempting best-effort installation. Ubuntu releases other than 26.04, non-Ubuntu distributions, production provisioning and guaranteed non-root installation are outside the support scope.
 
 ## Installer status
 
@@ -45,13 +45,7 @@ The current installer collection is available from the source tree and the publi
 | [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Released in 0.1.0 |
 | [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Released in 0.1.0 |
 
-The following installers are deferred until their dependencies or security contracts are established:
-
-- `codex` and `pi`, pending evaluation after generic npm support;
-- `playwright`, pending stable Node and npm installer contracts;
-- `install-script`, deferred after the [installation-script handling investigation](docs/install-script-investigation.md) found that pinning a bootstrap script does not verify mutable downstream downloads.
-
-A dedicated `search-cli-tools` installer is not planned. Search tools available through npm or pipx can be selected explicitly with the generic package installers. Script-only tools remain deferred. Tools that publish raw GitHub Release executables can use the integrity-controlled `github-release` installer; tools requiring remote bootstrap scripts need a separate future security decision.
+Tools available through npm or pipx can be selected explicitly with the generic package installers. Tools that publish raw GitHub Release executables can use the integrity-controlled `github-release` installer. Generic remote bootstrap-script execution is excluded because the [installation-script handling investigation](docs/install-script-investigation.md) found that pinning a bootstrap script does not verify mutable downstream downloads.
 
 ## Installer model
 
@@ -87,7 +81,7 @@ Because this project is restricted to expert developers in development contexts,
 - the installer emits a prominent warning with actionable advice immediately before using the risky mechanism; and
 - tests cover the secure default, required opt-in, warning and enabled behaviour.
 
-Risky behaviour must never become an implicit fallback when a secure operation fails. See [`PROJECT.md`](PROJECT.md) and [`CONVENTIONS.md`](CONVENTIONS.md) for the complete policy. The Docker-in-Docker privilege boundary and residual risks are detailed in its [threat model](docs/docker-in-docker-threat-model.md).
+Risky behaviour must never become an implicit fallback when a secure operation fails. See [`CONVENTIONS.md`](CONVENTIONS.md) for the complete policy. The Docker-in-Docker privilege boundary and residual risks are detailed in its [threat model](docs/docker-in-docker-threat-model.md).
 
 ## OCI consumption
 
@@ -165,7 +159,7 @@ docs/              Detailed project guides
 
 The root `Dockerfile` preserves the tested relationship between installer entry points and shared libraries.
 
-Shared code remains small and must not obscure installer control flow. The packaged layout will preserve the same relative relationship between `installers/` and `lib/` that is tested in the source tree.
+Shared code remains small and must not obscure installer control flow. The packaged layout will preserve the same relative relationship between `installers/` and `lib/` that is tested in the source tree. See the [architecture decisions](docs/architecture-decisions.md) for the rationale behind the product shape, composition model and release unit.
 
 ## Development and testing
 
@@ -191,7 +185,7 @@ Unit tests use Bash and project-owned assertion helpers without changing the dev
 
 Before changing installer behaviour:
 
-1. read [`PROJECT.md`](PROJECT.md), [`CONVENTIONS.md`](CONVENTIONS.md) and [`AGENTS.md`](AGENTS.md);
+1. read [`CONVENTIONS.md`](CONVENTIONS.md), [`AGENTS.md`](AGENTS.md) and the applicable [architecture decisions](docs/architecture-decisions.md);
 2. preserve documented installer CLI compatibility unless the collection version permits a breaking change;
 3. update documentation whenever behaviour, options, dependencies, network sources, integrity controls or risks change;
 4. run the relevant unit and integration tests; and
@@ -201,4 +195,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Milestones 1 through 6 and both post-MVP milestones are complete. Releases `0.1.0`, `0.2.0` and `0.3.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer and its qualification suite, and the independently qualified, digest-pinned candidate replaced the public Dev Container profile. Release `0.3.0` adds the narrow `github-release` artifact installer. Generic installation-script execution remains deferred because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
+Releases `0.1.0`, `0.2.0` and `0.3.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer, and release `0.3.0` added the narrow `github-release` artifact installer. Generic installation-script execution is not supported because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved.

@@ -103,7 +103,7 @@ Brave Search CLI is the representative composition because it publishes a raw `l
 
 The expert-developer audience remains relevant: the caller owns repository identity, exact version, asset selection and digest review. The installer owns deterministic enforcement and does not claim that a matching digest proves the selected upstream program is benign.
 
-Any future script executor or unverified mode requires a separate reviewed decision and is not needed to complete this milestone.
+A script executor or unverified mode is not approved.
 
 ## Candidate integrity and execution contract
 
@@ -230,5 +230,5 @@ The approved implementation work is:
 - [OpenSSF Scorecard](https://scorecard.dev/)
 - [curl redirect and credential behaviour](https://curl.se/docs/manpage.html#-L)
 - [SLSA artifact verification](https://slsa.dev/spec/draft/verifying-artifacts)
-- [Project security and controlled-risk requirements](../PROJECT.md#26-security-requirements)
+- [Security and controlled-risk conventions](../CONVENTIONS.md#security-and-package-management)
 - [Project network download conventions](../CONVENTIONS.md#network-downloads-and-integrity)

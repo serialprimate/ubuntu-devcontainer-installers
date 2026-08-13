@@ -2,9 +2,9 @@
 
 ## Required Context
 
-- Follow `PROJECT.md` for the current project scope, product policy, milestones and acceptance criteria.
 - Follow `CONVENTIONS.md` as the authoritative source for recurring implementation, security, testing, documentation and maintenance practices.
 - Read `README.md` for current user-facing purpose, support, availability and usage.
+- Read `docs/architecture-decisions.md` when a change affects the product shape, composition model, release unit, packaging layout or remote-installation boundary.
 - Resolve the requested outcome against those documents before changing files.
 - Stop and report any material conflict between the request, authoritative documents or established repository patterns.
 
