@@ -181,7 +181,7 @@ The source repository currently provides installation logic for:
 | `apt-packages`     | Migrate and redesign                        |
 | `apt-python`       | Migrate and redesign                        |
 | `codex`            | Evaluate after generic npm support          |
-| `install-script`   | Investigate as second post-MVP milestone    |
+| `install-script`   | Defer after security investigation          |
 | `node`             | Migrate and redesign                        |
 | `npm-packages`     | Migrate and redesign                        |
 | `pi`               | Evaluate after generic npm support          |
@@ -221,7 +221,7 @@ Examination of the source `user/install.sh` does not identify BuildKit-specific 
 
 ### 7.2 Deferred installer rationale
 
-`install-script` is deferred to the second post-MVP milestone because fetching and executing arbitrary remote code is a high-risk primitive. The investigation must decide whether a generic installer is justified or a specific installer should be used for each demonstrated case. A future form must provide integrity controls where practical. Any unverified execution mode must comply with the controlled-risk policy in section 9.1 and must never be the default.
+`install-script` remains deferred after the second post-MVP investigation because verifying a bootstrap script does not verify mutable binaries or second-stage scripts that it downloads. The approved milestone implementation is instead a narrow `github-release` installer for one exact raw executable asset selected by repository, release tag and asset name and verified against a caller-pinned SHA-256 digest. Any future remote-script executor requires a separate reviewed integrity and controlled-risk decision; an unverified mode must comply with section 9.1 and must never be the default.
 
 `search-cli-tools` is removed as a dedicated installer and from the first release candidate. Its npm and pipx applications can be selected explicitly through `npm-packages` and `pipx-packages` without additional installation behaviour. Tools that are available only through remote installation scripts remain outside the MVP pending the post-MVP `install-script` investigation.
 
@@ -501,7 +501,7 @@ Remote binary or archive installation must use one or more appropriate integrity
 
 A reviewed exception to these default security requirements is permitted only under the controlled-risk implementation policy in section 9.1. The exception must be necessary for specific development functionality, explicitly enabled by an installer option, documented, narrowly scoped and accompanied by a warning with actionable advice at installation time. Risky behaviour must not become an implicit fallback when verification or another secure operation fails.
 
-The `install-script` migration remains deferred until an integrity contract, including any narrowly defined controlled-risk modes, is designed and reviewed.
+The `install-script` migration remains deferred. Any future reconsideration requires a separate integrity contract, including review of transitive downloads and any narrowly defined controlled-risk modes.
 
 ## 27. Minimum-release-age controls
 
@@ -542,7 +542,7 @@ Potential later work includes:
 1. Ubuntu `linux/arm64` qualification;
 2. dedicated Codex and Pi installers where justified;
 3. Playwright installer;
-4. integrity-controlled remote installer or specific installer for a demonstrated script-only tool;
+4. reconsideration of a remote-script executor or specific installer for a demonstrated script-only tool;
 5. generated Dev Container Feature adapters;
 6. generated Feature tests;
 7. additional Ubuntu LTS releases; and
@@ -646,22 +646,24 @@ Outcome:
 
 The candidate successfully built and ran the complete project suite through its installed daemon before replacing the public profile. Legacy local profiles may retain the external Feature, but the public project profile is independent of it.
 
-### Post-MVP milestone 2 — Installation-script handling investigation
+### Post-MVP milestone 2 — GitHub Release artifact installation
+
+**Status:** Complete. The installation-script investigation selected and delivered a narrow release-artifact installer and deferred generic remote-script execution.
 
 Outcome:
 
-* requirements and threat model for remote installation scripts executed during image builds;
+* requirements and threat model for remote installation scripts and release artifacts used during image builds;
 * review of the predecessor `install-script` behaviour without reusing its dynamic shell evaluation;
-* decision whether demonstrated script-only tools justify a generic installer or specific integrity-controlled installers;
-* integrity contract covering immutable source selection, cryptographic digest verification, redirects, temporary resources, execution authority and failure handling;
-* literal repeatable argument handling without splitting, expansion or evaluation;
-* decision on whether environment assignment is required, including a design that does not expose secrets through ordinary command-line arguments or logs;
-* controlled-risk contract for any explicitly enabled unverified mode, including warnings, actionable advice, narrow scope and secure-default preservation;
-* documented repeated-invocation and composition behaviour;
-* implementation and isolated tests for the approved general or specific design; and
-* a representative composition scenario for any development tool that motivates implementation.
+* documented decision to defer generic remote-script execution because bootstrap-script verification does not provide transitive integrity for mutable downstream downloads;
+* a narrow `github-release` installer for one exact raw executable asset from one exact public repository and release tag;
+* required caller-pinned SHA-256 verification, HTTPS-only bounded redirects, unique temporary resources and fail-closed download handling;
+* explicit absolute destination handling with root ownership, mode `0755` and collision-safe idempotency;
+* no version discovery, `latest` selection, archive extraction, arbitrary command execution or authenticated private-repository support;
+* isolated input, integrity-failure, installation, repeated-invocation, collision and unsupported-platform tests;
+* packaged-artefact coverage; and
+* a representative Brave Search CLI composition using an exact release asset and digest.
 
-This work does not block `0.1.0`. A remote script must not be executed merely because its URL is HTTPS or version-looking; secure installation requires verification of the selected content. Any unverified mode requires explicit review and must satisfy section 9.1.
+Generic `install-script` support and every unverified execution mode remain deferred for separate future review. A remote script must not be executed merely because its own bytes are pinned: secure installation also requires integrity controls over what it subsequently installs.
 
 ## 32. MVP acceptance criteria
 

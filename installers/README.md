@@ -7,6 +7,7 @@ Available installers:
 - [`apt-packages`](apt-packages/README.md) installs an explicit literal collection of Ubuntu packages;
 - [`apt-python`](apt-python/README.md) installs Ubuntu Python with optional pip and virtual environment tooling;
 - [`docker-in-docker`](docker-in-docker/README.md) installs Docker Engine with explicit nested-daemon lifecycle control;
+- [`github-release`](github-release/README.md) installs one exact SHA-256-pinned raw GitHub Release executable;
 - [`node`](node/README.md) installs a supported Node.js major from the signed NodeSource repository;
 - [`npm-packages`](npm-packages/README.md) installs literal global npm registry packages with a configurable release-age delay;
 - [`pipx`](pipx/README.md) installs a selected pipx release with a configurable release-age delay;

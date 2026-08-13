@@ -24,15 +24,15 @@ RUN test -f /opt/ubuntu-devcontainer-installers/LICENSE \
         | sort | tr '\n' ' ')" = 'LICENSE README.md installers lib ' \
     && test "$(find /opt/ubuntu-devcontainer-installers/installers -mindepth 1 -maxdepth 1 \
         -type d -printf '%f\n' | sort | tr '\n' ' ')" \
-        = 'apt-packages apt-python docker-in-docker node npm-packages pipx pipx-packages user ' \
+        = 'apt-packages apt-python docker-in-docker github-release node npm-packages pipx pipx-packages user ' \
     && while IFS= read -r packaged_file; do \
         test "$(stat -c '%a' "${packaged_file}")" = 644; \
     done < <(find /opt/ubuntu-devcontainer-installers -type f ! -name install.sh \
         ! -path '*/docker-in-docker/docker-in-docker') \
     && test "$(stat -c '%a' \
         /opt/ubuntu-devcontainer-installers/installers/docker-in-docker/docker-in-docker)" = 755 \
-    && for installer in apt-packages apt-python docker-in-docker node npm-packages pipx \
-        pipx-packages user; do \
+    && for installer in apt-packages apt-python docker-in-docker github-release node npm-packages \
+        pipx pipx-packages user; do \
         test "$(stat -c '%a' \
             "/opt/ubuntu-devcontainer-installers/installers/${installer}/install.sh")" = 755 \
             && "/opt/ubuntu-devcontainer-installers/installers/${installer}/install.sh" --help \

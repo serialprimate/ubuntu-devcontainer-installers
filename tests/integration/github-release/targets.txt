@@ -1,0 +1,4 @@
+binary-idempotent-success
+digest-failure
+destination-collision-failure
+unsupported-platform-failure
