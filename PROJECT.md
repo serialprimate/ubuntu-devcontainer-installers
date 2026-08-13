@@ -36,7 +36,7 @@ Example target usage:
 # check=error=true
 
 # Provides the versioned installer payload
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.1.0 AS installers
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.2.0 AS installers
 
 # Builds the development image from the supported Ubuntu release
 FROM ubuntu:26.04
@@ -403,7 +403,7 @@ Consumer `COPY` fragment:
 
 ```dockerfile
 # Copies the versioned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.1.0 \
+COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.2.0 \
     /ubuntu-devcontainer-installers \
     /opt/ubuntu-devcontainer-installers
 ```
@@ -633,7 +633,7 @@ No manual GHCR publication is part of the normal release process. Establishing t
 
 ### Post-MVP milestone 1 — Docker-in-Docker installer and candidate Dev Container profile
 
-**Status:** In progress. Installer implementation and qualification are present in source; workflow-produced `0.2.0` and its digest-pinned candidate profile remain release-gated.
+**Status:** In progress. Installer implementation and qualification are complete, and workflow-produced release `0.2.0` is publicly available. The digest-pinned candidate profile remains outstanding.
 
 Outcome:
 
@@ -644,7 +644,7 @@ Outcome:
 * workflow-produced `0.2.0`, the next minor release because it adds the Docker-in-Docker installer to the collection; and
 * a tracked `.devcontainer/candidate/devcontainer.json` profile that consumes the `0.2.0` installer OCI image by immutable digest, installs its prerequisites and Docker-in-Docker through explicit installer invocations, configures only the documented necessary runtime privileges, and replaces the external Docker-in-Docker and project custom Features.
 
-The existing Feature-based profiles remain bootstrap profiles until this milestone passes. The candidate profile is not eligible to replace them until it has successfully built and run the complete project suite through its installed daemon. This work does not block `0.1.0`, but it is required before the project can claim a candidate profile independent of the external Docker-in-Docker Feature.
+The existing Feature-based profiles remain bootstrap profiles until this milestone passes. The candidate profile is not eligible to replace them until it has successfully built and run the complete project suite through its installed daemon. Release `0.2.0` satisfies the publication requirement, but the candidate profile is still required before the project can claim independence from the external Docker-in-Docker Feature.
 
 ### Post-MVP milestone 2 — Installation-script handling investigation
 

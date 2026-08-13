@@ -27,4 +27,4 @@ The official Docker APT repository is a separately trusted network source. TLS p
 
 ## Qualification requirements
 
-Qualification requires isolated installation tests, rejection of startup without the data mount, a privileged daemon lifecycle test using a non-`vfs` backend, proof that outer `--rm` deletes the anonymous volume, a nested container execution test and the complete project unit and integration suite using the installed daemon. The candidate Dev Container profile remains excluded until workflow-produced release `0.2.0` exists and its immutable OCI digest can be inserted and independently built.
+Qualification requires isolated installation tests, rejection of startup without the data mount, a privileged daemon lifecycle test using a non-`vfs` backend, proof that outer `--rm` deletes the anonymous volume, a nested container execution test and the complete project unit and integration suite using the installed daemon. Workflow-produced release `0.2.0` and its immutable OCI digest are available. The candidate Dev Container profile remains excluded until it is created, independently built and qualified.
