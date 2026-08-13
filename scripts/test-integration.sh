@@ -107,6 +107,7 @@ for suite in "${suites[@]}"; do
         # Unique tags and labels isolate concurrent runs and bound routine cleanup.
         image_tag="ubuntu-devcontainer-installers-test:${run_id}-${suite}-${target}"
         log_path="${log_directory}/${suite}-${target}.log"
+        target_runner="${suite_directory}/run-target.sh"
         if docker build \
             "${build_source_options[@]}" \
             --no-cache \
@@ -117,7 +118,10 @@ for suite in "${suites[@]}"; do
             --label "${source_label}" \
             --label "${project_label}" \
             --label "${run_label}" \
-            "${repository_root}" >"${log_path}" 2>&1; then
+            "${repository_root}" >"${log_path}" 2>&1 &&
+            { [[ ! -x "${target_runner}" ]] ||
+                "${target_runner}" "${image_tag}" "${target}" "${source_label}" \
+                    "${project_label}" "${run_label}" >>"${log_path}" 2>&1; }; then
             printf 'PASS integration %s/%s\n' "${suite}" "${target}"
             ((passed += 1))
         else

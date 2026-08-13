@@ -633,6 +633,8 @@ No manual GHCR publication is part of the normal release process. Establishing t
 
 ### Post-MVP milestone 1 — Docker-in-Docker installer and candidate Dev Container profile
 
+**Status:** In progress. Installer implementation and qualification are present in source; workflow-produced `0.2.0` and its digest-pinned candidate profile remain release-gated.
+
 Outcome:
 
 * requirements and threat model for a Docker-in-Docker installer;

@@ -33,6 +33,14 @@ Run one integration target:
 ./scripts/test-integration.sh foundation clean-ubuntu-26-04
 ```
 
+Run the complete suite through a freshly installed nested Docker daemon:
+
+```bash
+./scripts/test-docker-in-docker.sh
+```
+
+The complete `./scripts/test.sh` entry point includes this nested qualification once. Its inner invocation sets a recursion guard while still running every unit and integration suite through the installed daemon.
+
 Build and verify a local OCI candidate at the current revision:
 
 ```bash
@@ -56,7 +64,7 @@ An integration suite contains:
 - `tests/integration/<suite>/Dockerfile`; and
 - `tests/integration/<suite>/targets.txt`, with one Docker build target per non-blank line.
 
-Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, a unique image tag and project and test-run OCI labels.
+Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, a unique image tag and project and test-run OCI labels. A suite may add executable `run-target.sh` runtime assertions; the runner supplies the built image, target and required resource labels. Docker-in-Docker lifecycle assertions use this hook to run the installed image with the documented privilege and explicit startup and shutdown.
 
 ## Cleanup
 
@@ -66,4 +74,4 @@ Remove resources carrying the project label:
 ./scripts/clean-test-resources.sh
 ```
 
-Cleanup checks the Docker endpoint and operates only on containers, networks, volumes and images labelled `io.github.serialprimate.project=ubuntu-devcontainer-installers`. It does not run a daemon-wide prune or remove the unlabelled Ubuntu base image.
+Cleanup checks the Docker endpoint and operates only on containers, networks, volumes and images labelled `io.github.serialprimate.project=ubuntu-devcontainer-installers`. Removing a matching container also removes its attached anonymous volumes, including interrupted Docker-in-Docker qualification state. It does not run a daemon-wide prune or remove the unlabelled Ubuntu base image.

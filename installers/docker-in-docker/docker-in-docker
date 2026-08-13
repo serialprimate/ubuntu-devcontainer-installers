@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Controls the explicitly managed Docker daemon installed for development containers.
+
+readonly socket_path='/var/run/docker.sock'
+readonly data_root='/var/lib/docker-in-docker'
+readonly runtime_root='/run/docker-in-docker'
+readonly pid_path="${runtime_root}/dockerd.pid"
+readonly log_path="${runtime_root}/dockerd.log"
+
+# Usage: usage
+# Description: Writes command usage and lifecycle behaviour to standard output.
+usage() {
+    cat <<'EOF'
+Usage: docker-in-docker start|stop|status
+
+Explicitly control the development-container Docker daemon.
+
+Commands:
+  start   Start dockerd using the dedicated volume mounted at /var/lib/docker-in-docker.
+  stop    Gracefully stop the daemon started by this command.
+  status  Report whether the managed daemon is running.
+
+The outer container must use --rm and an anonymous volume at /var/lib/docker-in-docker.
+EOF
+}
+
+# Usage: die <message>
+# Description: Writes a command-qualified error to standard error.
+die() {
+    printf 'docker-in-docker: error: %s\n' "$1" >&2
+    return 1
+}
+
+# Usage: require_root
+# Description: Rejects lifecycle management without root authority.
+require_root() {
+    if ((EUID != 0)); then
+        die 'daemon lifecycle commands require root; run with sudo in the privileged container.'
+    fi
+}
+
+# Usage: process_is_live <pid>
+# Description: Verifies a process exists and is not waiting for PID 1 to reap it.
+# Returns: Non-zero when the process is absent or is a zombie.
+process_is_live() {
+    local pid="$1"
+    local process_state
+
+    kill -0 "${pid}" 2>/dev/null || return 1
+    [[ -r "/proc/${pid}/stat" ]] || return 1
+    read -r _ _ process_state _ <"/proc/${pid}/stat"
+    [[ "${process_state}" != 'Z' ]]
+}
+
+# Usage: managed_pid
+# Description: Writes the live managed daemon PID when its PID file identifies dockerd.
+# Returns: Non-zero when no managed daemon is running.
+managed_pid() {
+    local pid
+
+    [[ -r "${pid_path}" ]] || return 1
+    read -r pid <"${pid_path}"
+    [[ "${pid}" =~ ^[1-9][0-9]*$ ]] || return 1
+    # Process absence is an expected managed-state result.
+    # shellcheck disable=SC2310
+    process_is_live "${pid}" || return 1
+    [[ -r "/proc/${pid}/comm" ]] || return 1
+    [[ "$(<"/proc/${pid}/comm")" == 'dockerd' ]] || return 1
+    printf '%s\n' "${pid}"
+}
+
+# Usage: start_daemon
+# Description: Starts dockerd with explicit ephemeral-container paths and waits for readiness.
+# Side Effects: Creates daemon state, a Unix socket, a PID file and a runtime log.
+# Returns: Non-zero when a daemon is already running or readiness is not reached.
+start_daemon() {
+    local pid
+    local attempt
+
+    require_root
+    # A missing live managed process is the expected branch during startup.
+    # shellcheck disable=SC2310
+    if pid="$(managed_pid)"; then
+        die "managed daemon is already running with PID ${pid}."
+        return 1
+    fi
+    if [[ -S "${socket_path}" ]]; then
+        die "Docker socket already exists: ${socket_path}; stop the conflicting daemon first."
+        return 1
+    fi
+    if ! command -v mountpoint >/dev/null 2>&1; then
+        die 'required command not found: mountpoint; install the Ubuntu util-linux package.'
+        return 1
+    fi
+    if ! mountpoint --quiet -- "${data_root}"; then
+        die "dedicated Docker data volume is not mounted: ${data_root}. Run the outer container with --rm --mount type=volume,destination=${data_root}."
+        return 1
+    fi
+
+    rm -f -- "${pid_path}"
+    mkdir -p -- "${runtime_root}/exec"
+    chmod 0711 -- "${data_root}"
+    chmod 0755 -- "${runtime_root}" "${runtime_root}/exec"
+
+    dockerd \
+        --host "unix://${socket_path}" \
+        --data-root "${data_root}" \
+        --exec-root "${runtime_root}/exec" \
+        --pidfile "${pid_path}" \
+        --group docker \
+        >"${log_path}" 2>&1 &
+    pid=$!
+
+    for ((attempt = 0; attempt < 60; attempt++)); do
+        # Process exit is the expected startup-failure branch.
+        # shellcheck disable=SC2310
+        if ! process_is_live "${pid}"; then
+            wait "${pid}" 2>/dev/null || true
+            die "dockerd exited during startup; inspect ${log_path}. The container must run privileged."
+            return 1
+        fi
+        if docker --host "unix://${socket_path}" info >/dev/null 2>&1; then
+            printf 'docker-in-docker: info: daemon started with PID %s.\n' "${pid}"
+            return 0
+        fi
+        sleep 1
+    done
+
+    kill -TERM "${pid}" 2>/dev/null || true
+    wait "${pid}" || true
+    die "dockerd did not become ready within 60 seconds; inspect ${log_path}."
+}
+
+# Usage: stop_daemon
+# Description: Gracefully stops the daemon represented by the managed PID file.
+# Side Effects: Stops dockerd and removes its managed PID file and socket.
+# Returns: Non-zero when no managed daemon is running or shutdown times out.
+stop_daemon() {
+    local pid
+    local attempt
+
+    require_root
+    # A missing live managed process is an ordinary lifecycle-state failure.
+    # shellcheck disable=SC2310
+    if ! pid="$(managed_pid)"; then
+        die 'managed daemon is not running.'
+        return 1
+    fi
+
+    kill -TERM "${pid}"
+    for ((attempt = 0; attempt < 60; attempt++)); do
+        # Process exit is the expected successful-shutdown branch.
+        # shellcheck disable=SC2310
+        if ! process_is_live "${pid}"; then
+            wait "${pid}" 2>/dev/null || true
+            rm -f -- "${pid_path}" "${socket_path}"
+            printf 'docker-in-docker: info: daemon stopped.\n'
+            return 0
+        fi
+        sleep 1
+    done
+    die "dockerd did not stop within 60 seconds; inspect ${log_path}."
+}
+
+# Usage: report_status
+# Description: Reports managed daemon status to standard output.
+# Returns: Non-zero when the managed daemon is not running.
+report_status() {
+    local pid
+
+    # Status maps expected managed-process absence to its documented non-zero result.
+    # shellcheck disable=SC2310
+    if pid="$(managed_pid)"; then
+        printf 'docker-in-docker: info: daemon is running with PID %s.\n' "${pid}"
+        return 0
+    fi
+    printf 'docker-in-docker: info: daemon is not running.\n'
+    return 1
+}
+
+# Usage: main <command>
+# Description: Validates and dispatches one explicit daemon lifecycle command.
+# Returns: Non-zero for invalid input or a failed lifecycle operation.
+main() {
+    if (($# != 1)); then
+        usage >&2
+        return 2
+    fi
+
+    case "$1" in
+        start) start_daemon ;;
+        stop) stop_daemon ;;
+        status) report_status ;;
+        --help) usage ;;
+        *)
+            die "unknown command: $1; expected start, stop or status."
+            return 2
+            ;;
+    esac
+}
+
+main "$@"

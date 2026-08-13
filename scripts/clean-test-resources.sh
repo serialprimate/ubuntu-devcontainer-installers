@@ -20,7 +20,9 @@ fi
 # Description:
 # - Remove resources of one Docker type after a project-labelled query
 # - Write results to standard output and query errors to standard error
-# Side Effects: Force-removes only the resource IDs returned by the project-labelled query.
+# Side Effects:
+# - Force-removes only the resource IDs returned by the project-labelled query
+# - Removes anonymous volumes attached to matching containers
 # Returns: Non-zero when listing or removal fails.
 remove_resources() {
     local resource_type="$1"
@@ -29,6 +31,7 @@ remove_resources() {
     local resource_id
     local resource_ids=()
     local -A seen_ids=()
+    local -a removal_options=(--force)
 
     if ! query_output="$("$@")"; then
         printf 'cleanup: error: cannot list project-labelled %s resources\n' \
@@ -48,7 +51,10 @@ remove_resources() {
         return
     fi
 
-    docker "${resource_type}" rm --force -- "${resource_ids[@]}" >/dev/null
+    if [[ "${resource_type}" == 'container' ]]; then
+        removal_options+=(--volumes)
+    fi
+    docker "${resource_type}" rm "${removal_options[@]}" -- "${resource_ids[@]}" >/dev/null
     printf 'cleanup: %s: removed %d project-labelled resources\n' \
         "${resource_type}" "${#resource_ids[@]}"
 }

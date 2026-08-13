@@ -399,7 +399,7 @@ Unit tests run inside the development container without changing its operating-s
 
 ### Integration tests
 
-Integration suites live at `tests/integration/<suite>/`. Each suite has a `Dockerfile` and a `targets.txt` manifest containing one non-blank Docker build target per line. Use lowercase kebab-case target names. Each target represents one state assumption and must be independently buildable from the repository root.
+Integration suites live at `tests/integration/<suite>/`. Each suite has a `Dockerfile` and a `targets.txt` manifest containing one non-blank Docker build target per line. Use lowercase kebab-case target names. Each target represents one state assumption and must be independently buildable from the repository root. A suite may provide an executable `run-target.sh` when assertions require a built image to run, such as daemon lifecycle tests. The integration runner invokes it with the image tag, target and three project resource labels after a successful build. The hook must ignore build-only targets, run containers with all three supplied labels and remove or use `--rm` for every runtime resource it creates.
 
 Run every state-changing scenario in a fresh Ubuntu 26.04 image or independent build stage. Cover applicable behaviour, including:
 
@@ -454,7 +454,7 @@ io.github.serialprimate.project=ubuntu-devcontainer-installers
 io.github.serialprimate.test-run=<unique-run-id>
 ```
 
-Include a unique run identifier in image tags, container names and network names. Routine cleanup must select only project-labelled resources and must not run `docker system prune`. A whole-daemon maintenance command must be explicit and warn before acting.
+Include a unique run identifier in image tags, container names and network names. Routine cleanup must select only project-labelled resources and must not run `docker system prune`. It may also remove anonymous volumes attached exclusively to a selected project-labelled container when removing that container with `docker container rm --volumes`; this association is the ownership boundary for volumes that Docker cannot label during anonymous creation. A whole-daemon maintenance command must be explicit and warn before acting.
 
 Tests must pass against a clean inner daemon. Cached or persistent Docker state may improve local performance but must not be a correctness dependency.
 
