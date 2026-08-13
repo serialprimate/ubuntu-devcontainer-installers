@@ -98,13 +98,13 @@ Development takes place inside a predefined Dev Container that already provides:
 * Docker Buildx where required;
 * the permissions required to run test containers.
 
-The initial repository Dev Container profiles use:
+The public repository Dev Container profile uses the project-owned Docker-in-Docker installer from the digest-pinned release OCI image. Legacy local profiles may still use:
 
 ```text
 ghcr.io/devcontainers/features/docker-in-docker:4
 ```
 
-This is a temporary bootstrap dependency and is not part of the installer runtime or published OCI artefact. It remains the development bootstrap until the project-owned Docker-in-Docker installer has passed the qualification described in section 5 and the candidate Dev Container profile has replaced it.
+That external Feature is a legacy bootstrap dependency and is not part of the installer runtime, published OCI artefact or public development profile.
 
 The project must not depend on the implementation details of that Feature. Project scripts may assume only that a usable Docker endpoint is available.
 
@@ -118,7 +118,7 @@ before integration tests are started.
 
 ## 5. Docker-in-Docker replacement direction
 
-A project-owned Docker-in-Docker installer is a post-MVP release outcome required before a candidate Dev Container profile can replace the external `docker-in-docker:4` Feature in this repository’s Dev Container configuration. The candidate profile must consume the published installer OCI image by immutable digest; it must not copy installer code from the workspace or use custom Dev Container Features.
+The project-owned Docker-in-Docker installer and qualified public Dev Container profile replace the external `docker-in-docker:4` Feature in the repository's public development configuration. The public profile consumes the published installer OCI image by immutable digest; it does not copy installer code from the workspace or use custom Dev Container Features.
 
 The replacement must prioritise:
 
@@ -631,9 +631,9 @@ Outcome:
 
 No manual GHCR publication is part of the normal release process. Establishing the workflow before `0.1.0` prevents a separate manual tag, package-linkage and credential process that later automation would need to replace.
 
-### Post-MVP milestone 1 — Docker-in-Docker installer and candidate Dev Container profile
+### Post-MVP milestone 1 — Docker-in-Docker installer and public Dev Container profile
 
-**Status:** In progress. Installer implementation and qualification are complete, and workflow-produced release `0.2.0` is publicly available. The digest-pinned candidate profile remains outstanding.
+**Status:** Complete. Installer implementation and qualification passed, workflow-produced release `0.2.0` is publicly available, and the independently qualified digest-pinned candidate replaced the public profile.
 
 Outcome:
 
@@ -642,9 +642,9 @@ Outcome:
 * isolated installation and daemon-lifecycle tests;
 * a test run of the complete project suite through the installed daemon;
 * workflow-produced `0.2.0`, the next minor release because it adds the Docker-in-Docker installer to the collection; and
-* a tracked `.devcontainer/candidate/devcontainer.json` profile that consumes the `0.2.0` installer OCI image by immutable digest, installs its prerequisites and Docker-in-Docker through explicit installer invocations, configures only the documented necessary runtime privileges, and replaces the external Docker-in-Docker and project custom Features.
+* a tracked `.devcontainer/public/devcontainer.json` profile that consumes the `0.2.0` installer OCI image by immutable digest, installs its prerequisites and Docker-in-Docker through explicit installer invocations, configures only the documented necessary runtime privileges, and replaces the external Docker-in-Docker and project custom Features.
 
-The existing Feature-based profiles remain bootstrap profiles until this milestone passes. The candidate profile is not eligible to replace them until it has successfully built and run the complete project suite through its installed daemon. Release `0.2.0` satisfies the publication requirement, but the candidate profile is still required before the project can claim independence from the external Docker-in-Docker Feature.
+The candidate successfully built and ran the complete project suite through its installed daemon before replacing the public profile. Legacy local profiles may retain the external Feature, but the public project profile is independent of it.
 
 ### Post-MVP milestone 2 — Installation-script handling investigation
 
