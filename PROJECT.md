@@ -36,7 +36,7 @@ Example target usage:
 # check=error=true
 
 # Provides the versioned installer payload
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.2.0 AS installers
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.3.0 AS installers
 
 # Builds the development image from the supported Ubuntu release
 FROM ubuntu:26.04
@@ -403,7 +403,7 @@ Consumer `COPY` fragment:
 
 ```dockerfile
 # Copies the versioned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.2.0 \
+COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.3.0 \
     /ubuntu-devcontainer-installers \
     /opt/ubuntu-devcontainer-installers
 ```
@@ -648,7 +648,7 @@ The candidate successfully built and ran the complete project suite through its 
 
 ### Post-MVP milestone 2 — GitHub Release artifact installation
 
-**Status:** Complete. The installation-script investigation selected and delivered a narrow release-artifact installer and deferred generic remote-script execution.
+**Status:** Complete. The installation-script investigation selected and delivered a narrow release-artifact installer, deferred generic remote-script execution, and workflow-produced release `0.3.0` is publicly available.
 
 Outcome:
 
@@ -660,8 +660,9 @@ Outcome:
 * explicit absolute destination handling with root ownership, mode `0755` and collision-safe idempotency;
 * no version discovery, `latest` selection, archive extraction, arbitrary command execution or authenticated private-repository support;
 * isolated input, integrity-failure, installation, repeated-invocation, collision and unsupported-platform tests;
-* packaged-artefact coverage; and
-* a representative Brave Search CLI composition using an exact release asset and digest.
+* packaged-artefact coverage;
+* a representative Brave Search CLI composition using an exact release asset and digest; and
+* workflow-produced `0.3.0`, the next minor release because it adds the GitHub Release installer to the collection.
 
 Generic `install-script` support and every unverified execution mode remain deferred for separate future review. A remote script must not be executed merely because its own bytes are pinned: secure installation also requires integrity controls over what it subsequently installs.
 

@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-This document records post-MVP milestone 2's security boundary for remote installation scripts and its comparison of direct Dockerfile handling with generic and tool-specific installers. The resulting `github-release` installer is available in the source tree; this document does not approve execution of unverified remote code.
+This document records post-MVP milestone 2's security boundary for remote installation scripts and its comparison of direct Dockerfile handling with generic and tool-specific installers. The resulting `github-release` installer is available in the source tree and release `0.3.0`; this document does not approve execution of unverified remote code.
 
 The initial conclusion is that moving download-and-execute logic from a Dockerfile into a generic installer does not itself make the operation secure. Security comes from an explicit trust decision over the exact bytes executed, constrained execution inputs and visible ownership of the resulting system changes. A reusable installer can enforce those controls consistently, but a generic interface also broadens authority and can conceal tool-specific behaviour. The project's expert-developer, development-only audience makes an explicit literal argument and non-secret environment interface reasonable; it does not make shell evaluation, accidental secret disclosure or an unauthenticated source safe. The default design direction is therefore direct Dockerfile composition or a tool-specific installer unless multiple demonstrated tools share the same complete integrity and execution contract.
 
