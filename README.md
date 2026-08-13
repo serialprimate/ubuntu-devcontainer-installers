@@ -3,7 +3,7 @@
 Reusable Bash installers for constructing Ubuntu 26.04 development-container images.
 
 > [!IMPORTANT]
-> Release `0.1.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
+> Release `0.2.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
 
 ## Intended audience and scope
 
@@ -20,7 +20,7 @@ The canonical product is a collection of small, explicit and tested Ubuntu insta
 
 ## Support scope
 
-The initial release will support:
+The current release supports:
 
 - Ubuntu 26.04 LTS only;
 - `linux/amd64` initially;
@@ -31,13 +31,13 @@ Installers must reject unsupported operating systems and Ubuntu releases rather 
 
 ## Installer status
 
-The complete first release is available from the source tree and the published OCI image:
+The current installer collection is available from the source tree and the published OCI image:
 
 | Installer | Purpose | Status |
 | --- | --- | --- |
 | [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Released in 0.1.0 |
 | [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Released in 0.1.0 |
-| [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon | Available in source; planned for 0.2.0 |
+| [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon | Released in 0.2.0 |
 | [`node`](installers/node/README.md) | Install a selected supported Node.js version | Released in 0.1.0 |
 | [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Released in 0.1.0 |
 | [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
@@ -99,7 +99,7 @@ A consuming Dockerfile can copy the collection from the published exact version:
 # check=error=true
 
 # Provides the versioned installer payload
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.1.0 AS installers
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.2.0 AS installers
 
 # Builds the development image from the supported Ubuntu release
 FROM ubuntu:26.04
@@ -127,7 +127,7 @@ For reproducible builds, use this digest-pinned `COPY` fragment:
 
 ```dockerfile
 # Copies the digest-pinned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:5f0ce9394412e283ec549890a586f9489e91369f5d50cf348f819eda358da84d \
+COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:9c740ee6c64e5b47811ea87a78def60ae778c11ab0aeb45acd4c973574eadd2c \
     /ubuntu-devcontainer-installers \
     /opt/ubuntu-devcontainer-installers
 ```
@@ -144,7 +144,7 @@ The collection uses one Semantic Versioning release version. During initial deve
 
 A release must pass source-tree and packaged-artefact tests against Ubuntu 26.04. Qualification records the Ubuntu image digest, target architecture, Docker and BuildKit versions, repository commit and complete test result. The published OCI digest is the immutable release identity.
 
-The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.1.0` publishes `0.1.0`, `0.1` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
+The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.2.0` publishes `0.2.0`, `0.2` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
 
 ## Repository layout
 
@@ -200,4 +200,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Milestones 1 through 6 are complete. Release `0.1.0` was produced by the approved workflow and is publicly available from GHCR by exact version, convenience tags and immutable digest. The Docker-in-Docker installer and qualification suite for post-MVP milestone 1 are available in source. Workflow publication of `0.2.0` and a digest-pinned candidate Dev Container profile remain release-gated follow-up work. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
+Milestones 1 through 6 are complete. Releases `0.1.0` and `0.2.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` includes the Docker-in-Docker installer and its qualification suite. The digest-pinned candidate Dev Container profile remains follow-up work for post-MVP milestone 1. Installation-script handling is the second post-MVP milestone. The complete scope, milestones and acceptance criteria are defined in [`PROJECT.md`](PROJECT.md).
