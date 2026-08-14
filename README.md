@@ -5,6 +5,26 @@ Reusable Bash installers for constructing Ubuntu 26.04 development-container ima
 > [!IMPORTANT]
 > Release `0.3.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
 
+## Motivation
+
+Dev Container Features currently hide too much behind a short entry in `devcontainer.json`. Installation order, transitive dependencies, platform branches, security issues, merged metadata and installer side effects all influence the resulting image, but none are obvious at the point of use.
+
+Specifically:
+
+- **Composition is needlessly indirect.** The Feature specification requires tools to resolve hard dependencies, soft `installsAfter` relationships and user overrides. When those constraints do not determine an order, the tool chooses one it considers "optimal" according to the specified [Feature installation-order algorithm](https://github.com/devcontainers/spec/blob/main/docs/specs/devcontainer-features.md#installation-order).
+- **Basic reuse remains incomplete.** Installing the same Feature more than once with different options has been an open request since 2022 ([devcontainers/spec#44](https://github.com/devcontainers/spec/issues/44)). Ordering use cases also remain awkward or unsupported ([devcontainers/spec#524](https://github.com/devcontainers/spec/issues/524)). These are not edge concerns for a composition system.
+- **The portability model promotes complexity.** Official guidance expects Feature authors to detect operating systems and architectures and to select platform-specific installation paths ([authoring best practices](https://containers.dev/guide/feature-authoring-best-practices)). A large matrix of branches, fallbacks and subtly different outcomes is harder to maintain and audit.
+- **Tool behaviour does not reliably match the standard.** Implementation gaps can remain open for years ([devcontainers/cli#210](https://github.com/devcontainers/cli/issues/210)). Stewardship of the community has not produced standards development or implementation convergence at a pace this project considers acceptable.
+- **The net security posture is obscure.** Feature metadata is composed as well as installation code: one Feature can make the whole container privileged, while capabilities and security options are accumulated. The reviewer must inspect every Feature, its dependencies, metadata, scripts, network activity and the implementing tool to understand the result.
+- **Feature artefacts are not auditable.** While the [Dev Container lockfile](https://github.com/devcontainers/spec/blob/main/docs/specs/devcontainer-lockfile.md) pins resolved Feature artefacts and detects replacement, it does not establish source provenance, verify transitive downloads performed by installers, inventory resulting filesystem changes or summarise the effective privileges of the composition. Features can silently install unrelated and unexpected packages or toolchains. There is no standard end-to-end audit mechanism for answering the basic question: what did this set of Features do to the image?
+- **Risk acceptance is not explicit.** Security-sensitive behaviour should not emerge from metadata merging, a fallback path or an undocumented script.
+
+### The Alternative
+
+Today, the alternative is intentionally plain: small Bash installers, explicit command-line contracts and a visible sequence of commands in the consuming Dockerfile. Each installer uses secure defaults and documents its prerequisites, network sources, integrity controls, installed files and repeated-invocation behaviour. The complete tested collection is portable between source-tree use and a digest-pinnable OCI payload, without requiring Dev Container tooling or configuration. The expert user controls dependency selection, versions, source, installation and Docker layer ownership. Most importantly, it is possible to review the complete installation sequence, transitive downloads, resulting filesystem changes and security posture of the image before it is built.
+
+This approach is not perfect. It does not claim to make image construction safe by default. Installer defects, compromised upstreams, stale documentation and poor choices by consumers remain possible. It does, however, keep the important decisions where they can be seen, reviewed and changed by the person building the image.
+
 ## Intended audience and scope
 
 This project is for expert software developers who can review installer behaviour, image-build logs, system changes and documented security trade-offs.
