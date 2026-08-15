@@ -3,7 +3,7 @@
 Reusable Bash installers for constructing Ubuntu 26.04 development-container images.
 
 > [!IMPORTANT]
-> Release `0.3.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
+> Release `0.4.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
 
 ## Motivation
 
@@ -60,7 +60,7 @@ The current installer collection is available from the source tree and the publi
 | [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon | Released in 0.2.0 |
 | [`github-release`](installers/github-release/README.md) | Install an exact SHA-256-pinned raw GitHub Release executable | Released in 0.3.0 |
 | [`node`](installers/node/README.md) | Install a selected supported Node.js version | Released in 0.1.0 |
-| [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Released in 0.1.0 |
+| [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Updated in 0.4.0 |
 | [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
 | [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Released in 0.1.0 |
 | [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Released in 0.1.0 |
@@ -114,7 +114,7 @@ A consuming Dockerfile can copy the collection from the published exact version:
 # check=error=true
 
 # Provides the versioned installer payload
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.3.0 AS installers
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.4.0 AS installers
 
 # Builds the development image from the supported Ubuntu release
 FROM ubuntu:26.04
@@ -142,7 +142,7 @@ For reproducible builds, use this digest-pinned `COPY` fragment:
 
 ```dockerfile
 # Copies the digest-pinned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:535a0ee05cc8413b6bcde130df6750bb21fcb0929a472e95ab82adc49ac55dfa \
+COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:56de1b13ec4c02fc0e4984c26ef29907638c90c84fbb670058217c58a8646158 \
     /ubuntu-devcontainer-installers \
     /opt/ubuntu-devcontainer-installers
 ```
@@ -159,7 +159,7 @@ The collection uses one Semantic Versioning release version. During initial deve
 
 A release must pass source-tree and packaged-artefact tests against Ubuntu 26.04. Qualification records the Ubuntu image digest, target architecture, Docker and BuildKit versions, repository commit and complete test result. The published OCI digest is the immutable release identity.
 
-The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.3.0` publishes `0.3.0`, `0.3` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
+The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.4.0` publishes `0.4.0`, `0.4` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
 
 ## Repository layout
 
@@ -215,4 +215,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Releases `0.1.0`, `0.2.0` and `0.3.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer, and release `0.3.0` added the narrow `github-release` artifact installer. Generic installation-script execution is not supported because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved.
+Releases `0.1.0`, `0.2.0`, `0.3.0` and `0.4.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer, release `0.3.0` added the narrow `github-release` artifact installer, and release `0.4.0` updated the `npm-packages` installer with explicit package lifecycle-script opt-in. Generic installation-script execution is not supported because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved.
