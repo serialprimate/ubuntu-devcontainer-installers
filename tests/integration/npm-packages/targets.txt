@@ -1,5 +1,6 @@
 multiple-package-sets-success
 release-age-disable-success
+allow-package-scripts-success
 prerequisite-failure
 unsupported-npm-version-failure
 unsupported-platform-failure
