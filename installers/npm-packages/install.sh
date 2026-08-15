@@ -37,9 +37,11 @@ Options:
   --minimum-release-age-days DAYS  Require releases to be at least DAYS old
                                     (default: 7; requires npm 11.10.0 or newer).
   --without-minimum-release-age     Disable the default release-age check.
+  --allow-package-scripts           Allow package and dependency lifecycle scripts
+                                    to execute as root (disabled by default).
   --help                            Show this help and exit without changing state.
 
-Dependency lifecycle scripts are disabled for every package installation.
+Dependency lifecycle scripts are disabled unless explicitly allowed.
 EOF
 }
 
@@ -115,6 +117,7 @@ main() {
     local minimum_release_age_days="${default_minimum_release_age_days}"
     local minimum_release_age_seen='false'
     local without_minimum_release_age_seen='false'
+    local allow_package_scripts_seen='false'
     local package
     local -a npm_arguments=(install --global --ignore-scripts)
 
@@ -142,6 +145,14 @@ main() {
                     return 1
                 fi
                 without_minimum_release_age_seen='true'
+                shift
+                ;;
+            --allow-package-scripts)
+                if [[ "${allow_package_scripts_seen}" == 'true' ]]; then
+                    die "${installer}" 'option may be specified only once: --allow-package-scripts'
+                    return 1
+                fi
+                allow_package_scripts_seen='true'
                 shift
                 ;;
             --help)
@@ -185,8 +196,18 @@ main() {
         npm_arguments+=("--min-release-age=${minimum_release_age_days}")
     fi
 
-    # Install the complete package set without evaluating package lifecycle scripts
+    # Select the explicitly requested package-script policy
+    if [[ "${allow_package_scripts_seen}" == 'true' ]]; then
+        npm_arguments[2]='--ignore-scripts=false'
+    fi
+
+    # Install the complete package set under the selected package-script policy
     log_info "${installer}" 'installing requested global npm packages.'
+    if [[ "${allow_package_scripts_seen}" == 'true' ]]; then
+        log_warning "${installer}" \
+            'allowing package and dependency lifecycle scripts to execute as root; scripts may modify' \
+            'the image or access the network. Prefer the default, review dependencies, and pin exact versions.'
+    fi
     if ! npm "${npm_arguments[@]}" -- "${packages[@]}"; then
         die "${installer}" \
             'npm package installation failed; verify package specifications, release age and network access.'

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Installs an explicit literal collection of global npm registry packages for expert developers building development-container images. Package lifecycle scripts are disabled by default and cannot be enabled by this installer.
+Installs an explicit literal collection of global npm registry packages for expert developers building development-container images. Package lifecycle scripts are disabled by default and require explicit risk acceptance to enable.
 
 ## Supported platform
 
@@ -25,13 +25,14 @@ At least one package is required. Every `--package` contributes one literal valu
 - `--package PACKAGE`: installs one registry package name or `name@version-or-tag`; may be repeated. Scoped names such as `@scope/name` and `@scope/name@version` are supported. URLs, Git sources, aliases, local paths, ranges containing whitespace and option-like values are rejected.
 - `--minimum-release-age-days DAYS`: accepts an integer from 0 through 3650 and installs only releases available for at least that many days. The default is 7 days.
 - `--without-minimum-release-age`: explicitly disables the default supply-chain delay. It cannot be combined with `--minimum-release-age-days`.
+- `--allow-package-scripts`: allows package and dependency lifecycle scripts to execute as `root`. The default disables them.
 - `--help`: prints help and exits without changing system state.
 
-Each release-age option may be specified only once.
+Each release-age option and `--allow-package-scripts` may be specified only once.
 
 ## Installed files and commands
 
-Requested packages are installed into npm's system-wide global prefix. Commands and files depend on the selected packages. npm package dependency lifecycle scripts are disabled with `--ignore-scripts`; packages that require installation scripts may be incomplete and are outside the current installer contract.
+Requested packages are installed into npm's system-wide global prefix. Commands and files depend on the selected packages. npm package and dependency lifecycle scripts are disabled with `--ignore-scripts` unless `--allow-package-scripts` explicitly selects `--ignore-scripts=false`; packages that require scripts may otherwise be incomplete.
 
 ## Repeated invocation
 
@@ -42,6 +43,12 @@ Requested packages are installed into npm's system-wide global prefix. Commands 
 npm uses its configured registry, which defaults to `https://registry.npmjs.org/`. Registry package metadata and unversioned selections are mutable. npm verifies package integrity using registry metadata and lockless global-install semantics; this installer does not disable TLS or integrity checks. Exact package versions improve reproducibility but are not a substitute for an immutable installer image or dependency review.
 
 The minimum-release-age control asks npm to exclude versions published more recently than the selected number of days. It reduces exposure to newly published compromises but does not establish that an older package is safe.
+
+## Controlled-risk options
+
+`--allow-package-scripts` permits lifecycle scripts from requested packages and their dependencies to execute as `root` during installation. Those scripts can modify the image, execute downloaded code, access the network and read build-time resources available to root. The installer warns immediately before invoking npm, and omission preserves the secure `--ignore-scripts` default.
+
+This exception can be appropriate when a reviewed package must compile native components or install platform-specific assets. Prefer packages that do not require lifecycle scripts. Otherwise pin exact versions, review the selected package and dependency scripts, avoid exposing credentials or sensitive mounts during the build, and use the resulting image only in an isolated development context.
 
 ## Examples
 
@@ -65,6 +72,12 @@ Explicitly disable the delay when an unavailable recent version is intentionally
 ./install.sh --package typescript@latest --without-minimum-release-age
 ```
 
+Allow reviewed package lifecycle scripts when they are required:
+
+```bash
+./install.sh --package package-with-native-components@1.2.3 --allow-package-scripts
+```
+
 ## Known limitations
 
-Only registry package names with an optional simple version or tag selector are supported. The installer does not accept package-list files, configure registry authentication, persist npm configuration, remove packages or run package lifecycle scripts. Credentials must not be passed as installer arguments.
+Only registry package names with an optional simple version or tag selector are supported. The installer does not accept package-list files, configure registry authentication, persist npm configuration or remove packages. Script permission applies to the complete npm installation and cannot be limited to selected dependencies. Credentials must not be passed as installer arguments.

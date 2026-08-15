@@ -60,6 +60,38 @@ RUN /workspace/installers/npm-packages/install.sh \
     && grep -Fxq -- '@scope/tool@stable' /tmp/npm-arguments \
     && ! grep -Fq -- '--min-release-age=' /tmp/npm-arguments
 
+# Verifies explicit package-script risk acceptance and its warning with a recording npm.
+FROM ubuntu:26.04 AS allow-package-scripts-success
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# Copies the npm package installer.
+COPY installers/npm-packages /workspace/installers/npm-packages
+
+# Preserves the source-tree bundled-library relationship.
+COPY lib /workspace/lib
+
+# Installs an npm command that records when package scripts are explicitly enabled.
+RUN printf '%s\n' \
+        '#!/usr/bin/env bash' \
+        'if [[ "${1:-}" == "--version" ]]; then printf "11.10.0\\n"; exit; fi' \
+        'printf "%s\\n" "$@" >/tmp/npm-arguments' \
+        'if [[ " $* " == *" --ignore-scripts=false "* ]]; then touch /tmp/scripts-enabled; fi' \
+        >/usr/local/bin/npm \
+    && chmod 0755 /usr/local/bin/npm
+
+# Proves opt-in overrides the secure default and warns immediately before npm execution.
+RUN /workspace/installers/npm-packages/install.sh \
+        --package reviewed-package@1.2.3 \
+        --allow-package-scripts \
+        2>/tmp/npm-warning \
+    && test -e /tmp/scripts-enabled \
+    && grep -Fxq -- '--ignore-scripts=false' /tmp/npm-arguments \
+    && ! grep -Fxq -- '--ignore-scripts' /tmp/npm-arguments \
+    && grep -Fq -- 'lifecycle scripts to execute as root' /tmp/npm-warning \
+    && grep -Fq -- 'scripts may modify the image or access the network' /tmp/npm-warning \
+    && grep -Fq -- 'Prefer the default, review dependencies, and pin exact versions' /tmp/npm-warning
+
 # Reports the required installer composition order when npm is absent.
 FROM ubuntu:26.04 AS prerequisite-failure
 

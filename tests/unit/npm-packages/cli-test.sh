@@ -14,7 +14,8 @@ readonly installer="${repository_root}/installers/npm-packages/install.sh"
 output="$("${installer}" --help)"
 assert_contains '--package PACKAGE' "${output}"
 assert_contains 'default: 7' "${output}"
-assert_contains 'Dependency lifecycle scripts are disabled' "${output}"
+assert_contains '--allow-package-scripts' "${output}"
+assert_contains 'Dependency lifecycle scripts are disabled unless explicitly allowed' "${output}"
 
 # Require an explicit package collection before execution-context checks.
 set +e
@@ -69,3 +70,11 @@ status=$?
 set -e
 assert_equal '1' "${status}"
 assert_contains 'option may be specified only once: --without-minimum-release-age' "${output}"
+
+set +e
+output="$("${installer}" --package is-number \
+    --allow-package-scripts --allow-package-scripts 2>&1)"
+status=$?
+set -e
+assert_equal '1' "${status}"
+assert_contains 'option may be specified only once: --allow-package-scripts' "${output}"
