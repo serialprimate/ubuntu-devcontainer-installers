@@ -16,13 +16,13 @@ Administrators must preserve these settings. Release `0.1.0` completed the one-t
 ## Normal release
 
 1. Confirm the default branch passes continuous integration.
-2. Create an exact Semantic Versioning Git tag without a `v` prefix, such as `0.3.0`, at the reviewed commit.
+2. Create an exact Semantic Versioning Git tag without a `v` prefix, such as `0.4.0`, at the reviewed commit.
 3. Draft a GitHub Release for that tag and publish it after approval.
 4. Approve the protected `release` environment deployment.
 5. Confirm the workflow passes source-tree tests, builds once, passes packaged-artefact tests, publishes the exact, minor and major tags, and verifies an anonymous digest pull.
 6. Confirm the workflow attached `qualification-<version>.md` and added the immutable digest and source revision to the GitHub Release notes.
 
-The workflow uses only the repository-scoped `GITHUB_TOKEN`. It publishes `0.3.0`, `0.3` and `0` for release `0.3.0`; it never publishes `latest`.
+The workflow uses only the repository-scoped `GITHUB_TOKEN`. It publishes `0.4.0`, `0.4` and `0` for release `0.4.0`; it never publishes `latest`.
 
 ## Failed publication recovery
 

@@ -2,7 +2,7 @@
 # check=error=true
 
 # Provides the qualified installer payload by immutable release identity
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:535a0ee05cc8413b6bcde130df6750bb21fcb0929a472e95ab82adc49ac55dfa AS installers
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:56de1b13ec4c02fc0e4984c26ef29907638c90c84fbb670058217c58a8646158 AS installers
 
 # Builds the public development environment on the supported Ubuntu release
 FROM ubuntu:26.04

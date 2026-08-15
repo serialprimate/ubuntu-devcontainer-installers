@@ -14,4 +14,4 @@ Available installers:
 - [`pipx-packages`](pipx-packages/README.md) installs literal global PyPI applications with a configurable cooldown; and
 - [`user`](user/README.md) establishes an explicit development user identity and optional, controlled-risk passwordless sudo access.
 
-Copy the complete repository layout when consuming these installers so each entry point retains its `../../lib` relationship. Release `0.3.0` is available at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` and preserves that layout under `/ubuntu-devcontainer-installers`. Prefer the immutable digest documented in the repository README.
+Copy the complete repository layout when consuming these installers so each entry point retains its `../../lib` relationship. Release `0.4.0` is available at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` and preserves that layout under `/ubuntu-devcontainer-installers`. Prefer the immutable digest documented in the repository README.
