@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines how consumers of this project manage services required by a development container without granting the development user unrestricted passwordless sudo. The `container-services` implementation and Docker-in-Docker adapter are present in the working tree but are not part of the released `0.4.0` OCI payload until the next qualified release.
+This document defines how consumers of this project manage services required by a development container without granting the development user unrestricted passwordless sudo. The `container-services` implementation and Docker-in-Docker adapter are included in the released `0.5.0` OCI payload.
 
 The immediate example is the Docker-in-Docker daemon started by `.devcontainer/public/devcontainer.json`, but the decision applies more broadly to databases, caches and other long-running processes. It preserves the project's canonical product boundary: installers construct an image, while the consuming container definition owns runtime topology and startup policy.
 
