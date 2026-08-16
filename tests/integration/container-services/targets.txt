@@ -1,0 +1,10 @@
+installation-success
+registration-and-entrypoint-success
+startup-rollback-failure
+registration-failure
+no-registration-success
+malformed-state-failure
+exit-status-precedence
+aggregate-status-failure
+runtime-success
+forced-termination

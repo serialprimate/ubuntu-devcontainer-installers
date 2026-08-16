@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1091
 set -euo pipefail
 
 # Verifies shared diagnostics, root checks and command prerequisite failures.
@@ -8,13 +9,17 @@ readonly repository_root
 source "${repository_root}/tests/lib/assertions.sh"
 source "${repository_root}/lib/common.sh"
 
-# Qualify informational diagnostics with the installer name on standard output.
-output="$(log_info example 'installation started')"
-assert_equal 'example: info: installation started' "${output}"
+# Qualify informational diagnostics with a runtime component name on standard output.
+output="$(log_info container-services 'installation started')"
+assert_equal 'container-services: info: installation started' "${output}"
 
-# Qualify warning diagnostics with the installer name on standard error.
-output="$(log_warning example 'review this choice' 2>&1)"
-assert_equal 'example: warning: review this choice' "${output}"
+# Qualify warning diagnostics with a runtime component name on standard error.
+output="$(log_warning container-services 'review this choice' 2>&1)"
+assert_equal 'container-services: warning: review this choice' "${output}"
+
+# Qualify errors on standard error without changing the shared output contract.
+output="$(log_error container-services 'installation failed' 2>&1)"
+assert_equal 'container-services: error: installation failed' "${output}"
 
 # Reject a non-root effective UID supplied through the pure-test override.
 set +e

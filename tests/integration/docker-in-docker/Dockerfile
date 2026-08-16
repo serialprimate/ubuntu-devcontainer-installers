@@ -12,6 +12,9 @@ COPY installers/apt-packages /workspace/installers/apt-packages
 # Copies the Docker-in-Docker installer and bundled lifecycle command
 COPY installers/docker-in-docker /workspace/installers/docker-in-docker
 
+# Copies the optional service orchestrator used by automatic lifecycle assertions
+COPY installers/container-services /workspace/installers/container-services
+
 # Preserves the source-tree bundled-library relationship
 COPY lib /workspace/lib
 
@@ -20,12 +23,13 @@ RUN /workspace/installers/apt-packages/install.sh \
         --package ca-certificates \
         --package curl \
         --package gnupg \
-    && /workspace/installers/docker-in-docker/install.sh
+    && /workspace/installers/docker-in-docker/install.sh \
+    && /workspace/installers/container-services/install.sh
 
-# Verifies package, repository, command and stopped-daemon installation state
+# Verifies package, repository, command, adapter and stopped-daemon installation state
 FROM installation-base AS installation-success
 
-# Repeats installation and verifies the canonical stopped state and clean APT lifecycle
+# Repeats installation and verifies canonical runtime files and clean APT lifecycle
 RUN /workspace/installers/docker-in-docker/install.sh \
     && docker --version \
     && dockerd --version \
@@ -37,6 +41,9 @@ RUN /workspace/installers/docker-in-docker/install.sh \
     && test "$(stat -c '%a' /etc/apt/keyrings/docker.gpg)" = 644 \
     && test "$(stat -c '%a' /etc/apt/sources.list.d/docker.sources)" = 644 \
     && test "$(stat -c '%a' /usr/local/sbin/docker-in-docker)" = 755 \
+    && test "$(stat -c '%a' /usr/local/libexec/ubuntu-devcontainer-installers/services/docker-in-docker)" = 755 \
+    && test "$(stat -c '%a' /usr/local/libexec/ubuntu-devcontainer-installers/docker-in-docker/common.sh)" = 644 \
+    && test "$(stat -c '%u' /usr/local/libexec/ubuntu-devcontainer-installers/services/docker-in-docker)" = 0 \
     && test ! -S /var/run/docker.sock \
     && ! pgrep -x dockerd \
     && test -z "$(ls -A /var/lib/apt/lists)"

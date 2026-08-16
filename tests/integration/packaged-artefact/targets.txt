@@ -1,3 +1,5 @@
 payload-layout
+container-services-runtime
+docker-adapter-registration
 apt-repeated
 user-idempotent

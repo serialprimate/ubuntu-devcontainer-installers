@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+event_log='/tmp/container-services-events'
+printf '%s\n' "${1:?}" >>"${event_log}"
+if [[ "${1}" == 'start' ]]; then
+    chmod 0666 -- "${event_log}"
+fi
+case "${1}" in
+    start)
+        trap ':' TERM INT
+        while :; do
+            sleep infinity
+        done
+        ;;
+    stop) exit 0 ;;
+    status) exit 1 ;;
+    *) exit 2 ;;
+esac

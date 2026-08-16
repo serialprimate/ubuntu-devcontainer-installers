@@ -184,6 +184,18 @@ Use each field consistently:
 
 Validate shared-library function contracts with the foundation comment-conformance test. The test rejects legacy contract fields, requires `Usage` and `Description` immediately above every shared-library function, and rejects output behaviour in `Returns`.
 
+## Service adapters and runtime orchestration
+
+The optional service interoperability contract uses the fixed provider directory `/usr/local/libexec/ubuntu-devcontainer-installers/services/`. Service identifiers must be lowercase kebab-case and must resolve only beneath that directory; registration must never accept an arbitrary executable path, generated shell code or executable drop-in discovery.
+
+An eligible service installer must install one root-owned regular executable adapter with mode `0755` and no group or other write access. The adapter must accept literal `start`, `stop` and `status` operations. `start` and `stop` require root and return zero only after the owned service operation succeeds; `status` is read-only, usable by the development user and returns zero only after functional readiness is established. The installer must document the service name, adapter path, authority, readiness definition, owned state, logs and repeated operations.
+
+Service installation and runtime policy are separate. Installing a service adapter must not install `container-services`, register the service or start it. `container-services register --service NAME` is consuming-Dockerfile policy and accepts one complete ordered list. Startup follows declaration order; rollback and normal shutdown use reverse order. Registration is atomic, idempotent for an identical list and rejects a different existing manifest.
+
+Runtime programs must use the installed private copy of `lib/common.sh` rather than source the build payload or duplicate logging functions. All service and orchestration diagnostics use component-qualified `info`, `warning` and `error` messages with informational output on standard output and warnings and errors on standard error. Runtime state and manifests are root-owned and published atomically; readers such as `wait` and `status` never modify them.
+
+A service-providing installer must have unit coverage for CLI, adapter trust and lifecycle parsing, integration coverage for installation, manual and automatic operation and failure paths, and packaged-artefact coverage for bundled-library resolution and installed runtime independence from the source or OCI payload.
+
 ### Dockerfiles
 
 Every Dockerfile uses the current stable Dockerfile frontend and enables BuildKit checks as errors:

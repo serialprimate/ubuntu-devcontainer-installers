@@ -6,7 +6,8 @@ Available installers:
 
 - [`apt-packages`](apt-packages/README.md) installs an explicit literal collection of Ubuntu packages;
 - [`apt-python`](apt-python/README.md) installs Ubuntu Python with optional pip and virtual environment tooling;
-- [`docker-in-docker`](docker-in-docker/README.md) installs Docker Engine with explicit nested-daemon lifecycle control;
+- [`container-services`](container-services/README.md) installs the optional explicit runtime orchestrator for trusted service adapters;
+- [`docker-in-docker`](docker-in-docker/README.md) installs Docker Engine with explicit nested-daemon lifecycle control and its optional service adapter;
 - [`github-release`](github-release/README.md) installs one exact SHA-256-pinned raw GitHub Release executable;
 - [`node`](node/README.md) installs a supported Node.js major from the signed NodeSource repository;
 - [`npm-packages`](npm-packages/README.md) installs literal global npm registry packages with a configurable release-age delay;
@@ -14,4 +15,4 @@ Available installers:
 - [`pipx-packages`](pipx-packages/README.md) installs literal global PyPI applications with a configurable cooldown; and
 - [`user`](user/README.md) establishes an explicit development user identity and optional, controlled-risk passwordless sudo access.
 
-Copy the complete repository layout when consuming these installers so each entry point retains its `../../lib` relationship. Release `0.4.0` is available at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` and preserves that layout under `/ubuntu-devcontainer-installers`. Prefer the immutable digest documented in the repository README.
+Copy the complete repository layout when consuming these installers so each entry point retains its `../../lib` relationship. The service orchestrator and adapter registration are optional source-tree functionality pending the next qualified collection release. Release `0.4.0` is available at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` and preserves that layout under `/ubuntu-devcontainer-installers`. Prefer the immutable digest documented in the repository README.

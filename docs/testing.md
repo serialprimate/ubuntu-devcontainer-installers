@@ -51,11 +51,11 @@ revision="$(git rev-parse HEAD)"
 
 The OCI verifier inspects release metadata and runs the `packaged-artefact` suite after copying the payload from the candidate into fresh Ubuntu 26.04 stages.
 
-Detailed logs are retained under `/tmp/ubuntu-devcontainer-installers/`. The runners print the exact log path for a failed test.
+Detailed logs are retained under `/tmp/ubuntu-devcontainer-installers/`. The runners print the exact log path for a failed test. A full service-lifecycle qualification must run the focused `container-services` and `docker-in-docker` suites, the complete source-tree suite, the packaged-artefact suite against a candidate OCI image and the nested Docker-in-Docker qualification before release.
 
 ## Unit suite layout
 
-A unit suite lives at `tests/unit/<suite>/`. Each executable test is named `*-test.sh`, changes no operating-system state and exits non-zero on failure. Shared assertions live in `tests/lib/`.
+A unit suite lives at `tests/unit/<suite>/`. Each executable test is named `*-test.sh`, changes no operating-system state and exits non-zero on failure. Shared assertions live in `tests/lib/`. The `container-services` suite covers service-name validation, literal argument and order handling, trusted fixed adapter paths, manifest idempotence, runtime-state identity and exit-status precedence without requiring root or mutating the development container. The `docker-in-docker` suite retains manual CLI coverage and covers adapter delegation and shared component diagnostics.
 
 ## Integration suite layout
 
@@ -64,7 +64,7 @@ An integration suite contains:
 - `tests/integration/<suite>/Dockerfile`; and
 - `tests/integration/<suite>/targets.txt`, with one Docker build target per non-blank line.
 
-Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, a unique image tag and project and test-run OCI labels. A suite may add executable `run-target.sh` runtime assertions; the runner supplies the built image, target and required resource labels. Docker-in-Docker lifecycle assertions use this hook to run the installed image with the documented privilege and explicit startup and shutdown.
+Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, a unique image tag and project and test-run OCI labels. A suite may add executable `run-target.sh` runtime assertions; the runner supplies the built image, target and required resource labels. The `container-services` suite uses trusted fake adapters to qualify ordered startup, readiness, rollback, reverse shutdown, signal forwarding, read-only non-root wait/status, stale state and the documented outer-runtime forced-termination limitation. Docker-in-Docker lifecycle assertions use this hook to run the installed image with the documented privilege and explicit startup and shutdown, retaining manual and automatic adapter paths.
 
 ## Cleanup
 

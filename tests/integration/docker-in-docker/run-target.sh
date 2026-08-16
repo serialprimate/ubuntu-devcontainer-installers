@@ -67,6 +67,7 @@ docker exec "${container_id}" bash -euo pipefail -c '
     mountpoint --quiet /var/lib/docker-in-docker
     docker-in-docker start
     docker-in-docker status
+    /usr/local/libexec/ubuntu-devcontainer-installers/services/docker-in-docker status
     docker info
     test "$(docker info --format "{{.Driver}}")" != vfs
     test -S /var/run/docker.sock
@@ -74,6 +75,19 @@ docker exec "${container_id}" bash -euo pipefail -c '
     if docker-in-docker status; then
         exit 1
     fi
+    test ! -S /var/run/docker.sock
+'
+
+# Exercise automatic startup, stale-state invalidation and reverse adapter shutdown.
+docker exec "${container_id}" bash -euo pipefail -c '
+    container-services register --service docker-in-docker
+    install --directory --owner=root --group=root --mode=0755 \
+        /run/ubuntu-devcontainer-installers/container-services
+    printf "pid=999999\\nstart_time=0\\nstate=stopped\\n" \
+        >/run/ubuntu-devcontainer-installers/container-services/state
+    chmod 0644 /run/ubuntu-devcontainer-installers/container-services/state
+    chown root:root /run/ubuntu-devcontainer-installers/container-services/state
+    container-services entrypoint -- docker info >/dev/null
     test ! -S /var/run/docker.sock
 '
 

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name='alpha'
+event_log='/tmp/container-services-events'
+state_dir='/run/container-services-test'
+mkdir -p -- "${state_dir}"
+printf '%s\n' "${1:?}" >>"${event_log}"
+if [[ "${1}" == 'start' ]]; then
+    chmod 0666 -- "${event_log}"
+fi
+case "${1}" in
+    start) touch -- "${state_dir}/${name}" ;;
+    stop) rm -f -- "${state_dir}/${name}" ;;
+    status) test -e "${state_dir}/${name}" ;;
+    *) exit 2 ;;
+esac
