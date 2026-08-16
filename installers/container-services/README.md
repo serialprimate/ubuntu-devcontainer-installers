@@ -91,13 +91,14 @@ For Dev Container readiness, keep the process user root, set `remoteUser` to the
 
 ```json
 {
+  "overrideCommand": false,
   "postStartCommand": "container-services wait",
   "waitFor": "postStartCommand",
   "remoteUser": "dev"
 }
 ```
 
-Without a registration manifest, `entrypoint -- COMMAND` runs `COMMAND` transparently and no service is started. An installed service remains manually usable according to its own README. Automatic management does not require unrestricted passwordless sudo.
+Dev Container implementations replace an image command by default. Set `overrideCommand` to `false` so they preserve the service entrypoint; the consuming image must provide a long-running `CMD`, such as `CMD ["sleep", "infinity"]`, for the entrypoint to own. Without a registration manifest, `entrypoint -- COMMAND` runs `COMMAND` transparently and no service is started. An installed service remains manually usable according to its own README. Automatic management does not require unrestricted passwordless sudo.
 
 ## Known limitations
 

@@ -22,6 +22,8 @@
     "mounts": [
         "type=volume,target=/var/lib/docker-in-docker"
     ],
-    "postStartCommand": "sudo docker-in-docker start",
+    "overrideCommand": false,
+    "postStartCommand": "container-services wait",
+    "waitFor": "postStartCommand",
     "remoteUser": "dev"
 }

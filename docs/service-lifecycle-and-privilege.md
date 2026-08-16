@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document defines how consumers of this project manage services required by a development container without granting the development user unrestricted passwordless sudo. The `container-services` implementation and Docker-in-Docker adapter are included in the released `0.5.0` OCI payload.
+This document defines how consumers of this project manage services required by a development container without granting the development user unrestricted passwordless sudo. The `container-services` implementation and Docker-in-Docker adapter were introduced in `0.5.0`; `0.5.1` fixes Docker-in-Docker readiness checks for the non-root development user.
 
 The immediate example is the Docker-in-Docker daemon started by `.devcontainer/public/devcontainer.json`, but the decision applies more broadly to databases, caches and other long-running processes. It preserves the project's canonical product boundary: installers construct an image, while the consuming container definition owns runtime topology and startup policy.
 
@@ -147,7 +147,7 @@ The common logging unit tests should be extended to describe component-qualified
 
 ### Readiness in Dev Container profiles
 
-The profile should retain a non-privileged lifecycle command only as a readiness barrier:
+The profile must preserve the image entrypoint by setting `overrideCommand` to `false`; otherwise Dev Container implementations replace the command that the orchestrator must own. The consuming image must consequently provide a long-running `CMD`, such as `CMD ["sleep", "infinity"]`. The profile should retain a non-privileged lifecycle command only as a readiness barrier:
 
 - the root `container-services` entrypoint starts registered services;
 - `postStartCommand` runs `container-services wait` as the development user; and
