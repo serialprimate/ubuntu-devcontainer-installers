@@ -4,7 +4,7 @@
 
 This plan implements the accepted design in [Service lifecycle and privilege in development containers](service-lifecycle-and-privilege.md). The design document defines the intended behaviour and boundaries; this plan itemises the coordinated code, test, documentation, packaging and profile changes required for the MVP.
 
-The working-tree implementation is complete as one release-scoped feature except for the public and private Dev Container digest update, which requires an approved release first. The released `0.4.0` OCI payload and checked-in profiles remain unchanged; do not advertise this behaviour as released before a qualified immutable artefact exists.
+The implementation is complete as one release-scoped feature and was published in release `0.5.0`. The public and private Dev Container profiles now consume its qualified immutable OCI digest.
 
 ## Required outcome
 
@@ -369,7 +369,7 @@ Update:
 - `docs/testing.md` with the new suites, selectors and runtime qualification coverage; and
 - release documentation or release notes only where the chosen release version requires it.
 
-Do not present the feature as released until its exact version and immutable OCI digest exist.
+The feature is released in `0.5.0`; consuming profiles must use its exact version or immutable OCI digest.
 
 ## Development Container profiles
 
@@ -392,7 +392,7 @@ Update both `.devcontainer/public/` and `.devcontainer/private/` only after the 
 - retain privileged mode, anonymous Docker data volume and `--rm`; and
 - verify private-profile mounts and environment handling remain unchanged.
 
-The current profiles consume an already published immutable OCI digest. Do not point them at an unpublished tag or digest. Before release, test equivalent candidate profiles by injecting the locally built candidate image through a controlled test-only build path. This implementation was qualified through the source and packaged installer suites; profile qualification and checked-in digest replacement remain the required post-release consumption change.
+The current profiles consume the published `0.5.0` immutable OCI digest. Do not point them at an unpublished tag or digest. Profile qualification and checked-in digest replacement are complete after the qualified release; future profile changes should use the same controlled candidate-image and Dev Container qualification path.
 
 ## Other pre-existing installer impacts
 
