@@ -3,7 +3,7 @@
 Reusable Bash installers for constructing Ubuntu 26.04 development-container images.
 
 > [!IMPORTANT]
-> Release `0.5.0` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
+> Release `0.5.1` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
 
 ## Motivation
 
@@ -90,7 +90,7 @@ Array inputs use repeatable singular options, preserving each argument literally
 
 Installers do not infer or silently install unrelated prerequisite toolchains. For example, `npm-packages` requires Node.js and npm first, while `pipx` requires Ubuntu Python and virtual environment support.
 
-The released `0.5.0` collection provides an optional `container-services` orchestrator for justified co-location. Service installers provide manual lifecycle commands and trusted `start`, `stop` and `status` adapters independently; the consuming Dockerfile explicitly registers a complete ordered list. Installation never registers or starts a service.
+The released `0.5.0` collection provides an optional `container-services` orchestrator for justified co-location, and `0.5.1` fixes Docker-in-Docker readiness checks for the non-root development user. Service installers provide manual lifecycle commands and trusted `start`, `stop` and `status` adapters independently; the consuming Dockerfile explicitly registers a complete ordered list. Installation never registers or starts a service.
 
 ## Security and controlled-risk functionality
 
@@ -108,7 +108,7 @@ Risky behaviour must never become an implicit fallback when a secure operation f
 
 ## OCI consumption
 
-The release artefact is one small `FROM scratch` OCI image containing the complete qualified installer collection, shared libraries, documentation and licence. It is not a runtime image. The `container-services` service-lifecycle implementation is included in the released `0.5.0` collection. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
+The release artefact is one small `FROM scratch` OCI image containing the complete qualified installer collection, shared libraries, documentation and licence. It is not a runtime image. The `container-services` service-lifecycle implementation is included in the released collection, with the non-root Docker-in-Docker readiness fix in `0.5.1`. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
 
 A consuming Dockerfile can copy the collection from the published exact version:
 
@@ -117,7 +117,7 @@ A consuming Dockerfile can copy the collection from the published exact version:
 # check=error=true
 
 # Provides the versioned installer payload
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.5.0 AS installers
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.5.1 AS installers
 
 # Builds the development image from the supported Ubuntu release
 FROM ubuntu:26.04
@@ -145,7 +145,7 @@ For reproducible builds, use this digest-pinned `COPY` fragment:
 
 ```dockerfile
 # Copies the digest-pinned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:2e0caf41b91ddd90e76587ae8a839a79bccbfeb875992f1c1b86eab2840fa868 \
+COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:d57b09b76ec4914c949b32587ce3e9557e4022dba27564d28c95fccd674dbba1 \
     /ubuntu-devcontainer-installers \
     /opt/ubuntu-devcontainer-installers
 ```
@@ -162,7 +162,7 @@ The collection uses one Semantic Versioning release version. During initial deve
 
 A release must pass source-tree and packaged-artefact tests against Ubuntu 26.04. Qualification records the Ubuntu image digest, target architecture, Docker and BuildKit versions, repository commit and complete test result. The published OCI digest is the immutable release identity.
 
-The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.5.0` publishes `0.5.0`, `0.5` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
+The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.5.1` publishes `0.5.1`, `0.5` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
 
 ## Repository layout
 
@@ -186,7 +186,7 @@ Shared code remains small and must not obscure installer control flow. Runtime s
 
 ## Development and testing
 
-Development takes place in an Ubuntu 26.04 Dev Container with Bash, Git, Docker CLI, Docker Buildx where needed, and a functioning Docker-in-Docker daemon. The public and private profiles consume the released `0.5.0` payload, use the root `container-services` entrypoint and wait for service readiness through a non-root lifecycle hook. Before integration tests, verify the Docker endpoint:
+Development takes place in an Ubuntu 26.04 Dev Container with Bash, Git, Docker CLI, Docker Buildx where needed, and a functioning Docker-in-Docker daemon. The public and private profiles consume the released `0.5.1` payload, use the root `container-services` entrypoint and wait for service readiness through a non-root lifecycle hook. Before integration tests, verify the Docker endpoint:
 
 ```bash
 docker info
@@ -218,4 +218,4 @@ Implementation migration is intentionally greenfield. Only eligible installation
 
 ## Project status
 
-Releases `0.1.0`, `0.2.0`, `0.3.0`, `0.4.0` and `0.5.0` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer, release `0.3.0` added the narrow `github-release` artifact installer, release `0.4.0` updated the `npm-packages` installer with explicit package lifecycle-script opt-in, and release `0.5.0` added the `container-services` orchestrator and Docker-in-Docker service adapter. Generic installation-script execution is not supported because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved.
+Releases `0.1.0`, `0.2.0`, `0.3.0`, `0.4.0`, `0.5.0` and `0.5.1` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer, release `0.3.0` added the narrow `github-release` artifact installer, release `0.4.0` updated the `npm-packages` installer with explicit package lifecycle-script opt-in, release `0.5.0` added the `container-services` orchestrator and Docker-in-Docker service adapter, and release `0.5.1` fixed non-root Docker-in-Docker readiness checks. Generic installation-script execution is not supported because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved.

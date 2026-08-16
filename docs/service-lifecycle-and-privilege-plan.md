@@ -392,7 +392,7 @@ Update both `.devcontainer/public/` and `.devcontainer/private/` only after the 
 - retain privileged mode, anonymous Docker data volume and `--rm`; and
 - verify private-profile mounts and environment handling remain unchanged.
 
-The current profiles consume the published `0.5.0` immutable OCI digest. Do not point them at an unpublished tag or digest. Profile qualification and checked-in digest replacement are complete after the qualified release; future profile changes should use the same controlled candidate-image and Dev Container qualification path.
+The current profiles consume the published `0.5.1` immutable OCI digest, which fixes non-root Docker-in-Docker readiness checks. Do not point them at an unpublished tag or digest. Profile qualification and checked-in digest replacement are complete after the qualified release; future profile changes should use the same controlled candidate-image and Dev Container qualification path.
 
 ## Other pre-existing installer impacts
 
