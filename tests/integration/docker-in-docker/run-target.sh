@@ -59,7 +59,7 @@ anonymous_volume="$(docker container inspect --format \
 readonly anonymous_volume
 [[ -n "${anonymous_volume}" ]]
 
-# Exercise explicit lifecycle operations with the default copy-on-write storage backend
+# Start Docker with the default copy-on-write storage backend and verify root lifecycle control
 docker exec "${container_id}" bash -euo pipefail -c '
     if docker-in-docker status; then
         exit 1
@@ -71,6 +71,18 @@ docker exec "${container_id}" bash -euo pipefail -c '
     docker info
     test "$(docker info --format "{{.Driver}}")" != vfs
     test -S /var/run/docker.sock
+    useradd --create-home --shell /bin/bash --groups docker dev
+'
+
+# Verify read-only lifecycle and adapter status work for a development user without root authority
+docker exec --user dev "${container_id}" bash -euo pipefail -c '
+    docker-in-docker status
+    /usr/local/libexec/ubuntu-devcontainer-installers/services/docker-in-docker status
+    docker info
+'
+
+# Stop the managed daemon and verify its owned socket is removed
+docker exec "${container_id}" bash -euo pipefail -c '
     docker-in-docker stop
     if docker-in-docker status; then
         exit 1

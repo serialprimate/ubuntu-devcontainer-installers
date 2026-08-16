@@ -55,7 +55,7 @@ process_is_live() {
     local pid="$1"
     local process_state
 
-    kill -0 "${pid}" 2>/dev/null || return 1
+    [[ "${pid}" =~ ^[1-9][0-9]*$ ]] || return 1
     [[ -r "/proc/${pid}/stat" ]] || return 1
     read -r _ _ process_state _ <"/proc/${pid}/stat"
     [[ "${process_state}" != 'Z' ]]
