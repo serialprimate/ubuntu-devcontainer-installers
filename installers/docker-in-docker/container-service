@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Exposes Docker-in-Docker's existing lifecycle command as a trusted service adapter.
+
+readonly component='docker-in-docker'
+readonly lifecycle_command='/usr/local/sbin/docker-in-docker'
+readonly installed_common='/usr/local/libexec/ubuntu-devcontainer-installers/docker-in-docker/common.sh'
+adapter_directory="$(
+    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &&
+        pwd
+)"
+readonly adapter_directory
+runtime_common=''
+if [[ -f "${adapter_directory}/../../lib/common.sh" ]]; then
+    runtime_common="${adapter_directory}/../../lib/common.sh"
+elif [[ -f "${installed_common}" ]]; then
+    runtime_common="${installed_common}"
+fi
+if [[ -z "${runtime_common}" ]]; then
+    printf '%s\n' 'docker-in-docker: error: bundled common library is unavailable.' >&2
+    exit 1
+fi
+# shellcheck disable=SC1090
+source "${runtime_common}"
+
+if (($# != 1)); then
+    log_error "${component}" 'adapter expects exactly one start, stop or status operation.'
+    exit 2
+fi
+
+case "$1" in
+    start | stop | status)
+        exec "${lifecycle_command}" "$1"
+        ;;
+    *)
+        log_error "${component}" 'adapter expects start, stop or status.'
+        exit 2
+        ;;
+esac

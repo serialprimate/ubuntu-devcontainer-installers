@@ -10,6 +10,7 @@ readonly repository_root
 source "${repository_root}/tests/lib/assertions.sh"
 readonly installer="${repository_root}/installers/docker-in-docker/install.sh"
 readonly lifecycle_command="${repository_root}/installers/docker-in-docker/docker-in-docker"
+readonly adapter_command="${repository_root}/installers/docker-in-docker/container-service"
 
 # Report explicit prerequisites and runtime privilege without platform checks.
 output="$("${installer}" --help)"
@@ -30,7 +31,7 @@ assert_contains 'unknown option: --help' "${output}"
 # Expose only explicit lifecycle operations and reject absent or excessive arguments.
 output="$("${lifecycle_command}" --help)"
 assert_contains 'start|stop|status' "${output}"
-assert_contains 'must use --rm and an anonymous volume' "${output}"
+assert_contains 'must use --rm, --privileged and an anonymous volume' "${output}"
 for arguments in '' 'start extra'; do
     read -r -a argument_list <<<"${arguments}"
     set +e
@@ -46,5 +47,16 @@ set +e
 output="$("${lifecycle_command}" restart 2>&1)"
 status=$?
 set -e
-assert_equal '1' "${status}"
+assert_equal '2' "${status}"
 assert_contains 'unknown command: restart' "${output}"
+
+# Reject adapter operations and arities outside the literal shared lifecycle contract.
+for arguments in '' '--help' 'restart' 'status extra'; do
+    read -r -a argument_list <<<"${arguments}"
+    set +e
+    output="$("${adapter_command}" "${argument_list[@]}" 2>&1)"
+    status=$?
+    set -e
+    assert_equal '2' "${status}" "accepted invalid adapter request: ${arguments}"
+    assert_contains 'adapter expects' "${output}"
+done

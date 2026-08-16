@@ -3,11 +3,32 @@ set -euo pipefail
 
 # Controls the explicitly managed Docker daemon installed for development containers.
 
+readonly component='docker-in-docker'
 readonly socket_path='/var/run/docker.sock'
 readonly data_root='/var/lib/docker-in-docker'
 readonly runtime_root='/run/docker-in-docker'
 readonly pid_path="${runtime_root}/dockerd.pid"
 readonly log_path="${runtime_root}/dockerd.log"
+readonly installed_common='/usr/local/libexec/ubuntu-devcontainer-installers/docker-in-docker/common.sh'
+command_directory="$(
+    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &&
+        pwd
+)"
+readonly command_directory
+runtime_common=''
+if [[ "${command_directory}" == '/usr/local/sbin' && -f "${installed_common}" ]]; then
+    runtime_common="${installed_common}"
+elif [[ -f "${command_directory}/../../lib/common.sh" ]]; then
+    runtime_common="${command_directory}/../../lib/common.sh"
+elif [[ -f "${installed_common}" ]]; then
+    runtime_common="${installed_common}"
+fi
+if [[ -z "${runtime_common}" ]]; then
+    printf '%s\n' 'docker-in-docker: error: bundled common library is unavailable.' >&2
+    exit 1
+fi
+# shellcheck disable=SC1090
+source "${runtime_common}"
 
 # Usage: usage
 # Description: Writes command usage and lifecycle behaviour to standard output.
@@ -20,25 +41,11 @@ Explicitly control the development-container Docker daemon.
 Commands:
   start   Start dockerd using the dedicated volume mounted at /var/lib/docker-in-docker.
   stop    Gracefully stop the daemon started by this command.
-  status  Report whether the managed daemon is running.
+  status  Report whether the managed daemon is running and functionally ready.
 
-The outer container must use --rm and an anonymous volume at /var/lib/docker-in-docker.
+The outer container must use --rm, --privileged and an anonymous volume at
+/var/lib/docker-in-docker. No container-services registration is required.
 EOF
-}
-
-# Usage: die <message>
-# Description: Writes a command-qualified error to standard error.
-die() {
-    printf 'docker-in-docker: error: %s\n' "$1" >&2
-    return 1
-}
-
-# Usage: require_root
-# Description: Rejects lifecycle management without root authority.
-require_root() {
-    if ((EUID != 0)); then
-        die 'daemon lifecycle commands require root; run with sudo in the privileged container.'
-    fi
 }
 
 # Usage: process_is_live <pid>
@@ -54,23 +61,139 @@ process_is_live() {
     [[ "${process_state}" != 'Z' ]]
 }
 
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: process_is_managed <pid>
+# Description: Confirms a live process is the daemon launched with this command's exact paths.
+# Returns: Non-zero when the PID is absent or belongs to another process.
+process_is_managed() {
+    local pid="$1"
+    local -a command_arguments=()
+    local index
+    local data_root_matches=0
+    local pid_path_matches=0
+
+    process_is_live "${pid}" || return 1
+    [[ -r "/proc/${pid}/comm" && -r "/proc/${pid}/cmdline" ]] || return 1
+    [[ "$(<"/proc/${pid}/comm")" == 'dockerd' ]] || return 1
+    mapfile -d '' -t command_arguments <"/proc/${pid}/cmdline" || return 1
+    for ((index = 0; index < ${#command_arguments[@]}; index++)); do
+        case "${command_arguments[index]}" in
+            --data-root)
+                ((index + 1 < ${#command_arguments[@]})) || return 1
+                [[ "${command_arguments[index + 1]}" == "${data_root}" ]] || return 1
+                data_root_matches=1
+                ((index += 1))
+                ;;
+            --pidfile)
+                ((index + 1 < ${#command_arguments[@]})) || return 1
+                [[ "${command_arguments[index + 1]}" == "${pid_path}" ]] || return 1
+                pid_path_matches=1
+                ((index += 1))
+                ;;
+            *) : ;;
+        esac
+    done
+    ((data_root_matches == 1 && pid_path_matches == 1))
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
 # Usage: managed_pid
-# Description: Writes the live managed daemon PID when its PID file identifies dockerd.
+# Description: Writes the live managed daemon PID from its validated PID file.
 # Returns: Non-zero when no managed daemon is running.
 managed_pid() {
     local pid
+    local pid_metadata
 
-    [[ -r "${pid_path}" ]] || return 1
+    [[ -f "${pid_path}" && ! -L "${pid_path}" ]] || return 1
+    pid_metadata="$(stat -c '%u:%a' -- "${pid_path}")" || return 1
+    [[ "${pid_metadata}" == '0:644' ]] || return 1
     read -r pid <"${pid_path}"
     [[ "${pid}" =~ ^[1-9][0-9]*$ ]] || return 1
-    # Process absence is an expected managed-state result.
-    # shellcheck disable=SC2310
-    process_is_live "${pid}" || return 1
-    [[ -r "/proc/${pid}/comm" ]] || return 1
-    [[ "$(<"/proc/${pid}/comm")" == 'dockerd' ]] || return 1
+    process_is_managed "${pid}" || return 1
     printf '%s\n' "${pid}"
 }
 
+# Usage: path_has_metadata <path> <expected_metadata>
+# Description: Compares a path's numeric owner and mode with one canonical value.
+# Returns: Non-zero when metadata cannot be read or differs from the expected value.
+path_has_metadata() {
+    local path="$1"
+    local expected_metadata="$2"
+    local actual_metadata
+
+    actual_metadata="$(stat -c '%u:%a' -- "${path}")" || return 1
+    [[ "${actual_metadata}" == "${expected_metadata}" ]]
+}
+
+# Expected trust predicates are handled explicitly before any stale state is removed.
+# shellcheck disable=SC2310
+# Usage: remove_stale_runtime_state
+# Description: Removes only installer-owned stale PID and socket state.
+# Side Effects: Removes stale PID state and an unmounted, nonresponsive Docker socket.
+# Returns: Non-zero when runtime state or a live or mounted socket is unsafe.
+remove_stale_runtime_state() {
+    local path_metadata
+
+    if [[ -e "${runtime_root}" || -L "${runtime_root}" ]]; then
+        if [[ -L "${runtime_root}" || ! -d "${runtime_root}" ]] ||
+            ! path_has_metadata "${runtime_root}" '0:755'; then
+            die "${component}" "unsafe runtime directory: ${runtime_root}"
+            return 1
+        fi
+    else
+        install --directory --owner=root --group=root --mode=0755 -- "${runtime_root}"
+    fi
+    if [[ -e "${runtime_root}/exec" || -L "${runtime_root}/exec" ]]; then
+        if [[ -L "${runtime_root}/exec" || ! -d "${runtime_root}/exec" ]] ||
+            ! path_has_metadata "${runtime_root}/exec" '0:755'; then
+            die "${component}" "unsafe daemon exec directory: ${runtime_root}/exec"
+            return 1
+        fi
+    else
+        install --directory --owner=root --group=root --mode=0755 -- "${runtime_root}/exec"
+    fi
+    if [[ -e "${log_path}" || -L "${log_path}" ]]; then
+        if [[ -L "${log_path}" || ! -f "${log_path}" ]] ||
+            ! path_has_metadata "${log_path}" '0:644'; then
+            die "${component}" "unsafe daemon log path: ${log_path}"
+            return 1
+        fi
+    else
+        install --owner=root --group=root --mode=0644 -- /dev/null "${log_path}"
+    fi
+    if [[ -S "${socket_path}" ]]; then
+        if mountpoint --quiet -- "${socket_path}"; then
+            die "${component}" "Docker socket is mounted by another runtime: ${socket_path}."
+            return 1
+        fi
+        if docker --host "unix://${socket_path}" info >/dev/null 2>&1; then
+            die "${component}" "a live unmanaged Docker socket already exists: ${socket_path}."
+            return 1
+        fi
+        path_metadata="$(stat -c '%u:%G:%a' -- "${socket_path}")" || return 1
+        if [[ "${path_metadata}" != '0:docker:660' ]]; then
+            die "${component}" "stale Docker socket has unsafe ownership or mode: ${socket_path}."
+            return 1
+        fi
+        rm -f -- "${socket_path}"
+    elif [[ -e "${socket_path}" || -L "${socket_path}" ]]; then
+        die "${component}" "conflicting Docker socket path exists: ${socket_path}."
+        return 1
+    fi
+    if [[ -e "${pid_path}" || -L "${pid_path}" ]]; then
+        if [[ -L "${pid_path}" || ! -f "${pid_path}" ]] ||
+            ! path_has_metadata "${pid_path}" '0:644'; then
+            die "${component}" "unsafe managed PID path: ${pid_path}"
+            return 1
+        fi
+        rm -f -- "${pid_path}"
+    fi
+}
+
+# Expected lifecycle predicates are handled explicitly by the startup operation.
+# shellcheck disable=SC2310
 # Usage: start_daemon
 # Description: Starts dockerd with explicit ephemeral-container paths and waits for readiness.
 # Side Effects: Creates daemon state, a Unix socket, a PID file and a runtime log.
@@ -79,30 +202,21 @@ start_daemon() {
     local pid
     local attempt
 
-    require_root
-    # A missing live managed process is the expected branch during startup.
-    # shellcheck disable=SC2310
+    require_root "${component}"
     if pid="$(managed_pid)"; then
-        die "managed daemon is already running with PID ${pid}."
-        return 1
-    fi
-    if [[ -S "${socket_path}" ]]; then
-        die "Docker socket already exists: ${socket_path}; stop the conflicting daemon first."
+        die "${component}" "managed daemon is already running with PID ${pid}."
         return 1
     fi
     if ! command -v mountpoint >/dev/null 2>&1; then
-        die 'required command not found: mountpoint; install the Ubuntu util-linux package.'
+        die "${component}" 'required command not found: mountpoint; install the Ubuntu util-linux package.'
         return 1
     fi
     if ! mountpoint --quiet -- "${data_root}"; then
-        die "dedicated Docker data volume is not mounted: ${data_root}. Run the outer container with --rm --mount type=volume,destination=${data_root}."
+        die "${component}" "dedicated Docker data volume is not mounted: ${data_root}. Run the outer container with --rm --mount type=volume,destination=${data_root}."
         return 1
     fi
-
-    rm -f -- "${pid_path}"
-    mkdir -p -- "${runtime_root}/exec"
+    remove_stale_runtime_state
     chmod 0711 -- "${data_root}"
-    chmod 0755 -- "${runtime_root}" "${runtime_root}/exec"
 
     dockerd \
         --host "unix://${socket_path}" \
@@ -114,25 +228,26 @@ start_daemon() {
     pid=$!
 
     for ((attempt = 0; attempt < 60; attempt++)); do
-        # Process exit is the expected startup-failure branch.
-        # shellcheck disable=SC2310
         if ! process_is_live "${pid}"; then
             wait "${pid}" 2>/dev/null || true
-            die "dockerd exited during startup; inspect ${log_path}. The container must run privileged."
+            die "${component}" "dockerd exited during startup; inspect ${log_path}. The container must run privileged."
             return 1
         fi
-        if docker --host "unix://${socket_path}" info >/dev/null 2>&1; then
-            printf 'docker-in-docker: info: daemon started with PID %s.\n' "${pid}"
+        if process_is_managed "${pid}" &&
+            docker --host "unix://${socket_path}" info >/dev/null 2>&1; then
+            log_info "${component}" "daemon started with PID ${pid}."
             return 0
         fi
         sleep 1
     done
 
     kill -TERM "${pid}" 2>/dev/null || true
-    wait "${pid}" || true
-    die "dockerd did not become ready within 60 seconds; inspect ${log_path}."
+    wait "${pid}" 2>/dev/null || true
+    die "${component}" "dockerd did not become ready within 60 seconds; inspect ${log_path}."
 }
 
+# Expected lifecycle predicates are handled explicitly by the shutdown operation.
+# shellcheck disable=SC2310
 # Usage: stop_daemon
 # Description: Gracefully stops the daemon represented by the managed PID file.
 # Side Effects: Stops dockerd and removes its managed PID file and socket.
@@ -141,42 +256,42 @@ stop_daemon() {
     local pid
     local attempt
 
-    require_root
-    # A missing live managed process is an ordinary lifecycle-state failure.
-    # shellcheck disable=SC2310
+    require_root "${component}"
     if ! pid="$(managed_pid)"; then
-        die 'managed daemon is not running.'
+        die "${component}" 'managed daemon is not running.'
         return 1
     fi
 
     kill -TERM "${pid}"
     for ((attempt = 0; attempt < 60; attempt++)); do
-        # Process exit is the expected successful-shutdown branch.
-        # shellcheck disable=SC2310
-        if ! process_is_live "${pid}"; then
+        if ! process_is_managed "${pid}"; then
             wait "${pid}" 2>/dev/null || true
             rm -f -- "${pid_path}" "${socket_path}"
-            printf 'docker-in-docker: info: daemon stopped.\n'
+            log_info "${component}" 'daemon stopped.'
             return 0
         fi
         sleep 1
     done
-    die "dockerd did not stop within 60 seconds; inspect ${log_path}."
+    die "${component}" "dockerd did not stop within 60 seconds; inspect ${log_path}."
 }
 
+# Expected lifecycle predicates are mapped to the documented status result.
+# shellcheck disable=SC2310
 # Usage: report_status
-# Description: Reports managed daemon status to standard output.
-# Returns: Non-zero when the managed daemon is not running.
+# Description: Reports whether the managed daemon is live and functionally ready.
+# Returns: Non-zero when the managed daemon is absent or Docker API access fails.
 report_status() {
     local pid
 
-    # Status maps expected managed-process absence to its documented non-zero result.
-    # shellcheck disable=SC2310
     if pid="$(managed_pid)"; then
-        printf 'docker-in-docker: info: daemon is running with PID %s.\n' "${pid}"
-        return 0
+        if docker --host "unix://${socket_path}" info >/dev/null 2>&1; then
+            log_info "${component}" "daemon is running and ready with PID ${pid}."
+            return 0
+        fi
+        log_error "${component}" "managed daemon PID ${pid} is not functionally ready."
+        return 1
     fi
-    printf 'docker-in-docker: info: daemon is not running.\n'
+    log_info "${component}" 'daemon is not running.'
     return 1
 }
 
@@ -195,7 +310,7 @@ main() {
         status) report_status ;;
         --help) usage ;;
         *)
-            die "unknown command: $1; expected start, stop or status."
+            log_error "${component}" "unknown command: $1; expected start, stop or status."
             return 2
             ;;
     esac

@@ -56,8 +56,9 @@ The current installer collection is available from the source tree and the publi
 | Installer | Purpose | Status |
 | --- | --- | --- |
 | [`apt-packages`](installers/apt-packages/README.md) | Install requested APT packages | Released in 0.1.0 |
+| [`container-services`](installers/container-services/README.md) | Explicitly orchestrate trusted co-located service adapters | Implemented in the working tree; pending the next qualified release |
 | [`apt-python`](installers/apt-python/README.md) | Install Ubuntu Python tooling | Released in 0.1.0 |
-| [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon | Released in 0.2.0 |
+| [`docker-in-docker`](installers/docker-in-docker/README.md) | Install an explicitly managed nested Docker daemon and optional service adapter | Core released in 0.2.0; adapter pending the next qualified release |
 | [`github-release`](installers/github-release/README.md) | Install an exact SHA-256-pinned raw GitHub Release executable | Released in 0.3.0 |
 | [`node`](installers/node/README.md) | Install a selected supported Node.js version | Released in 0.1.0 |
 | [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Updated in 0.4.0 |
@@ -89,6 +90,8 @@ Array inputs use repeatable singular options, preserving each argument literally
 
 Installers do not infer or silently install unrelated prerequisite toolchains. For example, `npm-packages` requires Node.js and npm first, while `pipx` requires Ubuntu Python and virtual environment support.
 
+The working tree also provides an optional `container-services` orchestrator for justified co-location. Service installers provide manual lifecycle commands and trusted `start`, `stop` and `status` adapters independently; the consuming Dockerfile explicitly registers a complete ordered list. Installation never registers or starts a service, and the feature is not included in the released `0.4.0` OCI payload until the next qualified release.
+
 ## Security and controlled-risk functionality
 
 Secure, integrity-checked behaviour is the default. Installer input is not evaluated as shell syntax, credentials must not be logged, and secrets must not be accepted through ordinary command-line arguments when they would be exposed in image history.
@@ -105,7 +108,7 @@ Risky behaviour must never become an implicit fallback when a secure operation f
 
 ## OCI consumption
 
-The release artefact is one small `FROM scratch` OCI image containing the complete installer collection, shared libraries, documentation and licence. It is not a runtime image. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
+The release artefact is one small `FROM scratch` OCI image containing the complete qualified installer collection, shared libraries, documentation and licence. It is not a runtime image. The working-tree service-lifecycle implementation will enter this collection only with a qualified release; do not point a consuming profile at an unpublished tag or digest. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
 
 A consuming Dockerfile can copy the collection from the published exact version:
 
@@ -179,11 +182,11 @@ docs/              Detailed project guides
 
 The root `Dockerfile` preserves the tested relationship between installer entry points and shared libraries.
 
-Shared code remains small and must not obscure installer control flow. The packaged layout will preserve the same relative relationship between `installers/` and `lib/` that is tested in the source tree. See the [architecture decisions](docs/architecture-decisions.md) for the rationale behind the product shape, composition model and release unit.
+Shared code remains small and must not obscure installer control flow. Runtime service programs install private copies of the shared logger because the build payload need not remain present in a running image. The packaged layout will preserve the same relative relationship between `installers/` and `lib/` that is tested in the source tree. See the [architecture decisions](docs/architecture-decisions.md) for the rationale behind the product shape, composition model and release unit.
 
 ## Development and testing
 
-Development takes place in an Ubuntu 26.04 Dev Container with Bash, Git, Docker CLI, Docker Buildx where needed, and a functioning Docker-in-Docker daemon. Before integration tests, verify the Docker endpoint:
+Development takes place in an Ubuntu 26.04 Dev Container with Bash, Git, Docker CLI, Docker Buildx where needed, and a functioning Docker-in-Docker daemon. The checked-in public and private profiles still consume the released `0.4.0` payload and use their existing manual startup hook; they must not reference the working-tree service implementation until a qualified immutable release is published. Before integration tests, verify the Docker endpoint:
 
 ```bash
 docker info

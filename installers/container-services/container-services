@@ -1,0 +1,791 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Orchestrates explicitly registered project service adapters around a main command.
+
+readonly component='container-services'
+readonly configuration_root='/etc/ubuntu-devcontainer-installers/container-services'
+readonly manifest_path="${configuration_root}/services"
+readonly runtime_root='/run/ubuntu-devcontainer-installers/container-services'
+readonly state_path="${runtime_root}/state"
+readonly adapter_root='/usr/local/libexec/ubuntu-devcontainer-installers/services'
+readonly installed_common='/usr/local/libexec/ubuntu-devcontainer-installers/container-services/common.sh'
+readonly cli_misuse_status=2
+readonly registration_failure_status=3
+readonly lifecycle_failure_status=4
+readonly readiness_failure_status=5
+readonly shutdown_failure_status=6
+
+# Resolve the shared logger from the source tree or this command's installed support directory.
+command_directory="$(
+    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &&
+        pwd
+)"
+readonly command_directory
+runtime_common=''
+if [[ "${command_directory}" == '/usr/local/bin' && -f "${installed_common}" ]]; then
+    runtime_common="${installed_common}"
+elif [[ -f "${command_directory}/../../lib/common.sh" ]]; then
+    runtime_common="${command_directory}/../../lib/common.sh"
+elif [[ -f "${installed_common}" ]]; then
+    runtime_common="${installed_common}"
+fi
+if [[ -z "${runtime_common}" ]]; then
+    printf '%s\n' 'container-services: error: bundled common library is unavailable.' >&2
+    exit 1
+fi
+# shellcheck disable=SC1090
+source "${runtime_common}"
+
+# Usage: usage
+# Description: Writes the runtime command usage and stable exit-status contract.
+usage() {
+    cat <<'EOF'
+Usage:
+  container-services register --service NAME [--service NAME ...]
+  container-services entrypoint -- COMMAND [ARGUMENT ...]
+  container-services wait
+  container-services status
+  container-services --help
+
+Operations:
+  register    Publish one complete ordered service list when none exists.
+  entrypoint  Start registered services and own COMMAND until it exits.
+  wait        Wait for the current orchestrator and verify service readiness.
+  status      Report every registered service without waiting.
+
+Exit statuses:
+  0  Operation succeeded.
+  2  Command-line misuse.
+  3  Registration failed.
+  4  Startup or lifecycle operation failed.
+  5  Readiness or aggregate status failed.
+  6  Main command succeeded but service shutdown failed.
+
+Entrypoint otherwise preserves a non-zero main-command status and returns 130 or
+143 when INT or TERM terminates orchestration.
+EOF
+}
+
+# Usage: service_name_is_valid <name>
+# Description: Validates one fixed-directory service identifier.
+# Returns: Zero for a lowercase kebab-case identifier and non-zero otherwise.
+service_name_is_valid() {
+    local name="$1"
+
+    [[ "${#name}" -ge 1 && "${#name}" -le 64 ]] &&
+        [[ "${name}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
+}
+
+# Usage: path_is_root_directory <path>
+# Description: Verifies a non-symlink root-owned directory with no group or other writes.
+# Returns: Non-zero when the path is absent, unsafe or the wrong type.
+path_is_root_directory() {
+    local path="$1"
+    local owner
+    local mode
+
+    [[ -d "${path}" && ! -L "${path}" ]] || return 1
+    owner="$(stat -c '%u' -- "${path}")" || return 1
+    mode="$(stat -c '%a' -- "${path}")" || return 1
+    [[ "${owner}" == '0' && "${mode}" == '755' ]]
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: adapter_is_trusted <service_name>
+# Description: Validates the fixed service adapter's identity, type, mode and ownership.
+# Returns: Non-zero when the adapter cannot be trusted for orchestration.
+adapter_is_trusted() {
+    local service_name="$1"
+    local adapter_path="${adapter_root}/${service_name}"
+    local owner
+    local mode
+
+    path_is_root_directory "${adapter_root}" || return 1
+    [[ -f "${adapter_path}" && ! -L "${adapter_path}" && -x "${adapter_path}" ]] || return 1
+    owner="$(stat -c '%u' -- "${adapter_path}")" || return 1
+    mode="$(stat -c '%a' -- "${adapter_path}")" || return 1
+    [[ "${owner}" == '0' && "${mode}" == '755' ]]
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: adapter_path_for <service_name>
+# Description: Writes the only executable path permitted for a service name.
+# Returns: Zero after service-name validation and non-zero otherwise.
+adapter_path_for() {
+    local service_name="$1"
+
+    service_name_is_valid "${service_name}" || return 1
+    printf '%s/%s\n' "${adapter_root}" "${service_name}"
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: read_manifest <destination_array_name> [source_path]
+# Description: Reads and validates the complete ordered service manifest.
+# Side Effects: Replaces the named Bash array with validated service names and paths.
+# Returns: Non-zero when the manifest is absent, malformed or unsafe.
+read_manifest() {
+    local destination_name="$1"
+    local source_path="${2:-${manifest_path}}"
+    local -n destination="${destination_name}"
+    local service_name
+    local adapter_path
+    destination=()
+
+    [[ -f "${source_path}" && ! -L "${source_path}" ]] || return 1
+    path_is_root_directory "$(dirname -- "${source_path}")" || return 1
+    local manifest_owner
+    local manifest_mode
+    manifest_owner="$(stat -c '%u' -- "${source_path}")" || return 1
+    manifest_mode="$(stat -c '%a' -- "${source_path}")" || return 1
+    [[ "${manifest_owner}" == '0' && "${manifest_mode}" == '644' ]] || return 1
+    while IFS= read -r service_name || [[ -n "${service_name}" ]]; do
+        service_name_is_valid "${service_name}" || return 1
+        for adapter_path in "${destination[@]}"; do
+            [[ "${adapter_path##*/}" != "${service_name}" ]] || return 1
+        done
+        adapter_is_trusted "${service_name}" || return 1
+        destination+=("${adapter_root}/${service_name}")
+    done <"${source_path}"
+    ((${#destination[@]} > 0))
+}
+
+# Usage: manifest_content <service_name...>
+# Description: Writes the canonical newline-terminated manifest for service names.
+manifest_content() {
+    local service_name
+
+    for service_name in "$@"; do
+        printf '%s\n' "${service_name}"
+    done
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: write_manifest <service_name...>
+# Description: Publishes a root-owned complete manifest through a same-directory temporary file.
+# Side Effects: Creates or retains the registration manifest.
+# Returns: Non-zero when the manifest cannot be safely published.
+write_manifest() {
+    local temporary_manifest
+    local expected_content
+    local existing_content
+    local existing_metadata
+
+    expected_content="$(manifest_content "$@")" || return 1
+    expected_content+=$'\n'
+    if [[ -e "${manifest_path}" || -L "${manifest_path}" ]]; then
+        [[ -f "${manifest_path}" && ! -L "${manifest_path}" ]] || return 1
+        path_is_root_directory "${configuration_root}" || return 1
+        existing_metadata="$(stat -c '%u:%a' -- "${manifest_path}")" || return 1
+        [[ "${existing_metadata}" == '0:644' ]] || return 1
+        existing_content="$(<"${manifest_path}")" || return 1
+        if [[ "${existing_content}"$'\n' == "${expected_content}" ]]; then
+            return 0
+        fi
+        return 2
+    fi
+
+    path_is_root_directory "${configuration_root}" || return 1
+    temporary_manifest="$(mktemp "${configuration_root}/.services.XXXXXX")" || return 1
+    cleanup_temporary_file() {
+        rm -f -- "${temporary_manifest}"
+    }
+    trap cleanup_temporary_file RETURN
+    chmod 0644 -- "${temporary_manifest}" || return 1
+    chown root:root -- "${temporary_manifest}" || return 1
+    printf '%s' "${expected_content}" >"${temporary_manifest}" || return 1
+    mv -- "${temporary_manifest}" "${manifest_path}" || return 1
+    trap - RETURN
+}
+
+# Usage: process_start_time <pid>
+# Description: Writes the kernel start-time field for a live process identity check.
+# Returns: Non-zero when the process metadata cannot be read.
+process_start_time() {
+    local pid="$1"
+
+    [[ "${pid}" =~ ^[1-9][0-9]*$ ]] || return 1
+    [[ -r "/proc/${pid}/stat" ]] || return 1
+    awk '{print $22}' "/proc/${pid}/stat"
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: process_is_live <pid> <start_time>
+# Description: Confirms a PID still identifies the process that published runtime state.
+# Returns: Non-zero when the process is absent, a zombie or a different PID incarnation.
+process_is_live() {
+    local pid="$1"
+    local expected_start_time="$2"
+    local actual_start_time
+    local process_state
+
+    [[ -r "/proc/${pid}/stat" ]] || return 1
+    read -r _ _ process_state _ <"/proc/${pid}/stat"
+    [[ "${process_state}" != 'Z' ]] || return 1
+    actual_start_time="$(process_start_time "${pid}")" || return 1
+    [[ "${actual_start_time}" == "${expected_start_time}" ]]
+}
+
+# Usage: parse_state <state_array_name> [source_path]
+# Description: Reads the exact runtime-state fields used to bind readiness to one process.
+# Side Effects: Replaces the named Bash array with pid, start_time and state values.
+# Returns: Non-zero when runtime state is absent or malformed.
+parse_state() {
+    local destination_name="$1"
+    local source_path="${2:-${state_path}}"
+    # The destination is an associative array selected by the caller.
+    # shellcheck disable=SC2178
+    local -n destination="${destination_name}"
+    local line
+    local key
+    local value
+    local owner
+    local mode
+    destination=()
+
+    [[ -f "${source_path}" && ! -L "${source_path}" ]] || return 1
+    owner="$(stat -c '%u' -- "${source_path}")" || return 1
+    mode="$(stat -c '%a' -- "${source_path}")" || return 1
+    [[ "${owner}" == '0' && "${mode}" == '644' ]] || return 1
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        [[ "${line}" == *=* ]] || return 1
+        key="${line%%=*}"
+        value="${line#*=}"
+        case "${key}" in
+            pid) [[ "${value}" =~ ^[1-9][0-9]*$ ]] || return 1 ;;
+            start_time) [[ "${value}" =~ ^[0-9]+$ ]] || return 1 ;;
+            state) [[ "${value}" == starting || "${value}" == ready ||
+                "${value}" == failed || "${value}" == stopped ]] || return 1 ;;
+            *) return 1 ;;
+        esac
+        [[ -z "${destination[${key}]+set}" ]] || return 1
+        destination["${key}"]="${value}"
+    done <"${source_path}"
+    [[ -n "${destination[pid]+set}" && -n "${destination[start_time]+set}" &&
+        -n "${destination[state]+set}" ]]
+}
+
+# Usage: prepare_runtime_directory
+# Description: Creates the runtime directory or validates existing root-owned state.
+# Side Effects: May create the root-owned runtime directory.
+# Returns: Non-zero when the runtime path is unsafe.
+prepare_runtime_directory() {
+    local owner
+    local mode
+
+    if [[ -e "${runtime_root}" || -L "${runtime_root}" ]]; then
+        [[ -d "${runtime_root}" && ! -L "${runtime_root}" ]] || return 1
+        owner="$(stat -c '%u' -- "${runtime_root}")" || return 1
+        mode="$(stat -c '%a' -- "${runtime_root}")" || return 1
+        [[ "${owner}" == '0' && "${mode}" == '755' ]]
+        return
+    fi
+    if [[ -L "$(dirname -- "${runtime_root}")" ]]; then
+        return 1
+    fi
+    install --directory --owner=root --group=root --mode=0755 -- "${runtime_root}"
+}
+
+# Predicate failures are returned explicitly from this audited function.
+# shellcheck disable=SC2310
+# Usage: publish_state <state> <pid> <start_time>
+# Description: Atomically publishes root-readable orchestrator state.
+# Side Effects: Creates or replaces the runtime state file.
+# Returns: Non-zero when runtime state cannot be published safely.
+publish_state() {
+    local state="$1"
+    local pid="$2"
+    local start_time="$3"
+    local temporary_state
+
+    [[ "${state}" == starting || "${state}" == ready || "${state}" == failed ||
+        "${state}" == stopped ]] || return 1
+    path_is_root_directory "${runtime_root}" || return 1
+    [[ ! -L "${state_path}" && (! -e "${state_path}" || -f "${state_path}") ]] || return 1
+    temporary_state="$(mktemp "${runtime_root}/.state.XXXXXX")" || return 1
+    cleanup_temporary_state() {
+        rm -f -- "${temporary_state}"
+    }
+    trap cleanup_temporary_state RETURN
+    printf 'pid=%s\nstart_time=%s\nstate=%s\n' "${pid}" "${start_time}" "${state}" \
+        >"${temporary_state}" || return 1
+    chmod 0644 -- "${temporary_state}" || return 1
+    chown root:root -- "${temporary_state}" || return 1
+    mv -- "${temporary_state}" "${state_path}" || return 1
+    trap - RETURN
+}
+
+# Usage: remove_state
+# Description: Removes only the orchestrator's root-owned runtime state file.
+# Side Effects: Removes the runtime state file when it is a regular non-symlink file.
+# Returns: Non-zero when an unsafe state path is found.
+remove_state() {
+    if [[ -L "${state_path}" || (-e "${state_path}" && ! -f "${state_path}") ]]; then
+        return 1
+    fi
+    rm -f -- "${state_path}"
+}
+
+# Predicate failures are handled and reported explicitly by this validation function.
+# shellcheck disable=SC2310
+# Usage: validate_manifest_request <service_array_name>
+# Description: Validates names, duplicates and trusted adapters before registration changes state.
+# Returns: Non-zero when a requested adapter is invalid or missing.
+validate_manifest_request() {
+    local source_name="$1"
+    local -n source="${source_name}"
+    local service_name
+    local adapter_path
+    local position=0
+
+    for service_name in "${source[@]}"; do
+        ((position += 1))
+        if ! service_name_is_valid "${service_name}"; then
+            log_error "${component}" "invalid service name: ${service_name}"
+            return 1
+        fi
+        for adapter_path in "${source[@]:0:position-1}"; do
+            if [[ "${adapter_path}" == "${service_name}" ]]; then
+                log_error "${component}" "service declared more than once: ${service_name}"
+                return 1
+            fi
+        done
+        adapter_path="$(adapter_path_for "${service_name}")"
+        if ! adapter_is_trusted "${service_name}"; then
+            if [[ "${service_name}" == 'docker-in-docker' ]]; then
+                log_error "${component}" \
+                    "service adapter is missing or unsafe: ${adapter_path}; run installers/docker-in-docker/install.sh first."
+            else
+                log_error "${component}" \
+                    "service adapter is missing or unsafe: ${adapter_path}; install the provider first."
+            fi
+            return 1
+        fi
+    done
+}
+
+# Usage: active_orchestrator <state_values_name>
+# Description: Reports whether parsed state identifies a live orchestrator process.
+# Returns: Zero for a matching live process and non-zero for stale or malformed state.
+active_orchestrator() {
+    local state_name="$1"
+    local -n state="${state_name}"
+
+    process_is_live "${state[pid]}" "${state[start_time]}"
+}
+
+# Usage: invoke_adapter <adapter_path> <operation>
+# Description: Runs one trusted adapter operation while retaining its child for signal handling.
+# Side Effects: The adapter may change its owned service state.
+# Returns: The adapter operation's exit status.
+invoke_adapter() {
+    local adapter_path="$1"
+    local operation="$2"
+    local result
+
+    active_child_pid=''
+    "${adapter_path}" "${operation}" &
+    active_child_pid=$!
+    while :; do
+        set +e
+        wait "${active_child_pid}"
+        result=$?
+        set -e
+        if ! kill -0 "${active_child_pid}" 2>/dev/null; then
+            break
+        fi
+    done
+    active_child_pid=''
+    return "${result}"
+}
+
+# Usage: handle_signal <signal>
+# Description: Forwards a termination request to the active adapter or main command.
+handle_signal() {
+    local signal="$1"
+    received_signal="${signal}"
+    if [[ -n "${active_child_pid}" ]]; then
+        kill -"${signal}" "${active_child_pid}" 2>/dev/null || true
+    fi
+    if [[ -n "${main_pid}" ]]; then
+        kill -"${signal}" "${main_pid}" 2>/dev/null || true
+    fi
+}
+
+# Adapter failures are deliberately aggregated rather than triggering errexit.
+# shellcheck disable=SC2310
+# Usage: stop_services <adapter_array_name>
+# Description: Stops registered services in reverse declaration order and aggregates failures.
+# Returns: Zero when every stop operation succeeds, otherwise non-zero.
+stop_services() {
+    local source_name="$1"
+    local -n source="${source_name}"
+    local index
+    local failure=0
+
+    for ((index = ${#source[@]} - 1; index >= 0; index--)); do
+        log_info "${component}" "stopping service $((index + 1))/${#source[@]}: ${source[index]##*/}."
+        if ! invoke_adapter "${source[index]}" stop; then
+            failure=1
+            log_error "${component}" \
+                "service stop failed at position $((index + 1)): ${source[index]##*/}."
+        fi
+    done
+    return "${failure}"
+}
+
+# Lifecycle failures are deliberately mapped to the documented exit-status contract.
+# shellcheck disable=SC2310
+# Usage: entrypoint <command...>
+# Description: Starts registered services, owns the main command and performs reverse shutdown.
+# Side Effects: Starts and stops adapters, publishes runtime state and runs the main command.
+# Returns: Main-command status, startup failure status or shutdown failure status.
+run_entrypoint() {
+    local -a adapters=()
+    local -a started_adapters=()
+    local -A state_values=()
+    local start_time
+    local adapter
+    local result
+    local main_exit_status
+    local shutdown_failed=0
+    local termination_status=0
+    local index
+
+    require_root "${component}" || return "${lifecycle_failure_status}"
+    if [[ -e "${state_path}" || -L "${state_path}" ]]; then
+        if [[ -L "${state_path}" || ! -f "${state_path}" ]] ||
+            ! parse_state state_values; then
+            log_error "${component}" 'runtime state is malformed; remove it only after confirming no orchestrator is live.'
+            return "${lifecycle_failure_status}"
+        fi
+        if active_orchestrator state_values; then
+            log_error "${component}" 'another live orchestrator owns the runtime state.'
+            return "${lifecycle_failure_status}"
+        fi
+        remove_state || return "${lifecycle_failure_status}"
+    fi
+
+    if [[ ! -e "${manifest_path}" && ! -L "${manifest_path}" ]]; then
+        log_info "${component}" 'no services are registered; running the main command directly.'
+        exec "$@"
+    fi
+    if ! read_manifest adapters; then
+        log_error "${component}" 'registration manifest is absent, empty or unsafe.'
+        return "${lifecycle_failure_status}"
+    fi
+    if ! prepare_runtime_directory; then
+        log_error "${component}" "runtime directory is unsafe: ${runtime_root}"
+        return "${lifecycle_failure_status}"
+    fi
+    start_time="$(process_start_time "$$")" || return "${lifecycle_failure_status}"
+    publish_state starting "$$" "${start_time}" || return "${lifecycle_failure_status}"
+
+    # Start every service in declaration order and roll back only completed starts.
+    for adapter in "${adapters[@]}"; do
+        log_info "${component}" \
+            "starting service $((${#started_adapters[@]} + 1))/${#adapters[@]}: ${adapter##*/}."
+        if invoke_adapter "${adapter}" start; then
+            started_adapters+=("${adapter}")
+        else
+            publish_state failed "$$" "${start_time}" || true
+            if [[ -n "${received_signal}" ]]; then
+                log_warning "${component}" "termination requested while starting service: ${adapter##*/}."
+                if [[ "${received_signal}" == 'TERM' ]]; then
+                    termination_status=143
+                else
+                    termination_status=130
+                fi
+            else
+                log_error "${component}" "startup failed for service: ${adapter##*/}."
+            fi
+            for ((index = ${#started_adapters[@]} - 1; index >= 0; index--)); do
+                log_info "${component}" \
+                    "rolling back service $((index + 1))/${#started_adapters[@]}: ${started_adapters[index]##*/}."
+                if ! invoke_adapter "${started_adapters[index]}" stop; then
+                    log_error "${component}" \
+                        "rollback stop failed: ${started_adapters[index]##*/}."
+                fi
+            done
+            publish_state stopped "$$" "${start_time}" || true
+            remove_state || true
+            if ((termination_status != 0)); then
+                return "${termination_status}"
+            fi
+            return "${lifecycle_failure_status}"
+        fi
+        if [[ -n "${received_signal}" ]]; then
+            log_warning "${component}" 'termination requested during startup.'
+            stop_services started_adapters || true
+            publish_state stopped "$$" "${start_time}" || true
+            remove_state || true
+            if [[ "${received_signal}" == 'TERM' ]]; then
+                return 143
+            fi
+            return 130
+        fi
+    done
+
+    if ! publish_state ready "$$" "${start_time}"; then
+        log_error "${component}" 'could not publish ready runtime state; stopping registered services.'
+        stop_services adapters || true
+        publish_state stopped "$$" "${start_time}" || true
+        remove_state || true
+        return "${lifecycle_failure_status}"
+    fi
+    log_info "${component}" 'all registered services are ready.'
+    if [[ -n "${received_signal}" ]]; then
+        log_warning "${component}" 'termination requested during startup.'
+        if [[ "${received_signal}" == 'TERM' ]]; then
+            main_exit_status=143
+        else
+            main_exit_status=130
+        fi
+    else
+        # Run the caller's command directly so every argument remains literal.
+        "$@" &
+        main_pid=$!
+        while :; do
+            set +e
+            wait "${main_pid}"
+            main_exit_status=$?
+            set -e
+            if ! kill -0 "${main_pid}" 2>/dev/null; then
+                break
+            fi
+        done
+        main_pid=''
+    fi
+    log_info "${component}" "main command exited with status ${main_exit_status}."
+
+    if ! stop_services adapters; then
+        shutdown_failed=1
+    fi
+    publish_state stopped "$$" "${start_time}" || true
+    remove_state || true
+    if ((main_exit_status != 0)); then
+        return "${main_exit_status}"
+    fi
+    if ((shutdown_failed != 0)); then
+        return "${shutdown_failure_status}"
+    fi
+    return 0
+}
+
+# Readiness predicates are deliberately mapped to the aggregate readiness status.
+# shellcheck disable=SC2310
+# Usage: run_wait
+# Description: Waits quietly for matching startup and verifies every registered service.
+# Returns: Zero when no services exist or all registered services are ready.
+run_wait() {
+    local -a adapters=()
+    local -A state_values=()
+    local adapter
+    local service_failed=0
+
+    if [[ ! -e "${manifest_path}" && ! -L "${manifest_path}" ]]; then
+        log_info "${component}" 'no services are registered.'
+        return 0
+    fi
+    if ! read_manifest adapters; then
+        log_error "${component}" 'registration manifest is absent, empty or unsafe.'
+        return "${readiness_failure_status}"
+    fi
+    while :; do
+        if ! parse_state state_values; then
+            log_error "${component}" 'runtime state is absent or malformed; the entrypoint is not ready.'
+            return "${readiness_failure_status}"
+        fi
+        case "${state_values[state]}" in
+            starting)
+                if ! active_orchestrator state_values; then
+                    log_error "${component}" 'orchestrator disappeared during startup.'
+                    return "${readiness_failure_status}"
+                fi
+                sleep 1
+                ;;
+            failed)
+                log_error "${component}" 'service startup failed.'
+                return "${readiness_failure_status}"
+                ;;
+            stopped)
+                log_error "${component}" 'orchestrator has stopped before readiness.'
+                return "${readiness_failure_status}"
+                ;;
+            ready)
+                active_orchestrator state_values || {
+                    log_error "${component}" 'orchestrator disappeared before readiness verification.'
+                    return "${readiness_failure_status}"
+                }
+                break
+                ;;
+            *)
+                log_error "${component}" 'runtime state has an unsupported lifecycle value.'
+                return "${readiness_failure_status}"
+                ;;
+        esac
+    done
+
+    for adapter in "${adapters[@]}"; do
+        if ! invoke_adapter "${adapter}" status; then
+            service_failed=1
+        fi
+    done
+    if ((service_failed != 0)); then
+        log_error "${component}" 'one or more registered services are not ready.'
+        return "${readiness_failure_status}"
+    fi
+    log_info "${component}" 'all registered services are ready.'
+}
+
+# Readiness predicates are deliberately mapped to the aggregate readiness status.
+# shellcheck disable=SC2310
+# Usage: run_status
+# Description: Reports all registered services without waiting or modifying state.
+# Returns: Zero when all services are ready, otherwise the aggregate status failure.
+run_status() {
+    local -a adapters=()
+    local -A state_values=()
+    local adapter
+    local service_failed=0
+    local orchestrator_failed=0
+    local position=0
+
+    if [[ ! -e "${manifest_path}" && ! -L "${manifest_path}" ]]; then
+        log_info "${component}" 'no services are registered.'
+        return 0
+    fi
+    if ! read_manifest adapters; then
+        log_error "${component}" 'registration manifest is absent, empty or unsafe.'
+        return "${readiness_failure_status}"
+    fi
+    if ! parse_state state_values || [[ "${state_values[state]}" != 'ready' ]] ||
+        ! active_orchestrator state_values; then
+        orchestrator_failed=1
+        log_error "${component}" 'orchestrator is not ready.'
+    fi
+    for adapter in "${adapters[@]}"; do
+        ((position += 1))
+        log_info "${component}" "checking service ${position}/${#adapters[@]}: ${adapter##*/}."
+        if ! invoke_adapter "${adapter}" status; then
+            service_failed=1
+        fi
+    done
+    if ((service_failed != 0)); then
+        log_error "${component}" 'one or more registered services are not ready.'
+    fi
+    if ((orchestrator_failed != 0 || service_failed != 0)); then
+        return "${readiness_failure_status}"
+    fi
+}
+
+# Runtime operation failures are deliberately mapped to the public CLI statuses.
+# shellcheck disable=SC2310
+# Usage: main <argument...>
+# Description: Parses one explicit runtime operation before inspecting system state.
+# Returns: The selected operation's documented result or CLI misuse status.
+main() {
+    local -a services=()
+    local option
+    local operation_status
+
+    if [[ $# -eq 1 && "$1" == '--help' ]]; then
+        usage
+        return 0
+    fi
+    if (($# == 0)); then
+        log_error "${component}" 'an operation is required; use --help for usage.'
+        return "${cli_misuse_status}"
+    fi
+
+    case "$1" in
+        register)
+            shift
+            while (($# > 0)); do
+                option="$1"
+                case "${option}" in
+                    --service)
+                        if (($# < 2)) || [[ -z "$2" ]] || [[ "$2" == -* ]]; then
+                            log_error "${component}" 'option requires a service name: --service NAME.'
+                            return "${cli_misuse_status}"
+                        fi
+                        services+=("$2")
+                        shift 2
+                        ;;
+                    *)
+                        log_error "${component}" "unknown register option: ${option}"
+                        return "${cli_misuse_status}"
+                        ;;
+                esac
+            done
+            if ((${#services[@]} == 0)); then
+                log_error "${component}" 'register requires at least one --service NAME.'
+                return "${cli_misuse_status}"
+            fi
+            require_root "${component}" || return "${registration_failure_status}"
+            validate_manifest_request services || return "${registration_failure_status}"
+            set +e
+            write_manifest "${services[@]}"
+            operation_status=$?
+            set -e
+            if ((operation_status != 0)); then
+                if ((operation_status == 2)); then
+                    log_error "${component}" 'a different registration already exists; register the complete desired list once.'
+                else
+                    log_error "${component}" 'registration manifest state is unsafe or could not be published.'
+                fi
+                return "${registration_failure_status}"
+            fi
+            log_info "${component}" "registered services in order: ${services[*]}."
+            ;;
+        entrypoint)
+            shift
+            if (($# == 0)) || [[ "$1" != '--' ]]; then
+                log_error "${component}" 'entrypoint requires -- followed by a main command.'
+                return "${cli_misuse_status}"
+            fi
+            shift
+            if (($# == 0)); then
+                log_error "${component}" 'entrypoint requires at least one main-command argument.'
+                return "${cli_misuse_status}"
+            fi
+            run_entrypoint "$@"
+            ;;
+        wait)
+            (($# == 1)) || {
+                log_error "${component}" 'wait accepts no arguments.'
+                return "${cli_misuse_status}"
+            }
+            run_wait
+            ;;
+        status)
+            (($# == 1)) || {
+                log_error "${component}" 'status accepts no arguments.'
+                return "${cli_misuse_status}"
+            }
+            run_status
+            ;;
+        --help)
+            log_error "${component}" 'options must be used alone; use --help without another operation.'
+            return "${cli_misuse_status}"
+            ;;
+        *)
+            log_error "${component}" "unknown operation: $1"
+            return "${cli_misuse_status}"
+            ;;
+    esac
+}
+
+active_child_pid=''
+main_pid=''
+received_signal=''
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    trap 'handle_signal TERM' TERM
+    trap 'handle_signal INT' INT
+    main "$@"
+fi
