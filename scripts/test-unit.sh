@@ -8,7 +8,8 @@ repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly repository_root
 run_id="unit-$(date -u +%Y%m%d%H%M%S)-$$-${RANDOM}"
 readonly run_id
-readonly log_directory="/tmp/ubuntu-devcontainer-installers/${run_id}"
+readonly temporary_directory="${repository_root}/tmp"
+readonly log_directory="${temporary_directory}/${run_id}"
 mkdir -p -- "${log_directory}"
 
 # With no selector, discover every suite while preserving lexical glob order.

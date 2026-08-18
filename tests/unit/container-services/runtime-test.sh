@@ -35,7 +35,9 @@ assert_equal \
     "${adapter_path}"
 
 # Parse exact runtime state and reject duplicate or unsupported fields.
-temporary_directory="$(mktemp -d '/tmp/ubuntu-devcontainer-installers.container-services-unit.XXXXXX')"
+readonly temporary_root="${repository_root}/tmp"
+mkdir -p -- "${temporary_root}"
+temporary_directory="$(mktemp -d "${temporary_root}/container-services-unit.XXXXXX")"
 readonly temporary_directory
 trap 'rm -rf -- "${temporary_directory}"' EXIT
 stat() {

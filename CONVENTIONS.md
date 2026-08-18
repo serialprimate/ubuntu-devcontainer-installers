@@ -454,7 +454,7 @@ Use the repository test entry points when available:
 
 Run focused tests while iterating and all affected scenarios before completion. Test from the packaged OCI layout whenever packaging can affect the change.
 
-The test runners accept suite names matching directories under `tests/unit/` and `tests/integration/`; the integration runner additionally accepts one target from the selected suite's `targets.txt`. Keep detailed failures under `/tmp/ubuntu-devcontainer-installers/` and terminal output concise. This path is for development and test logs, not installer runtime temporary files.
+The test runners accept suite names matching directories under `tests/unit/` and `tests/integration/`; the integration runner additionally accepts one target from the selected suite's `targets.txt`. Keep detailed failures under the top-level `tmp/` directory and terminal output concise. This directory is for development and test logs, not installer runtime temporary files.
 
 ### Docker resources
 

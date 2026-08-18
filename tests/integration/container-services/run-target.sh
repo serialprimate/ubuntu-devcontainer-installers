@@ -8,15 +8,20 @@ readonly target="$2"
 readonly source_label="$3"
 readonly project_label="$4"
 readonly run_label="$5"
+repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
+readonly repository_root
+temporary_directory="${repository_root}/tmp"
+readonly temporary_directory
+mkdir -p -- "${temporary_directory}"
 
 if [[ "${target}" != 'runtime-success' && "${target}" != 'forced-termination' ]]; then
     exit 0
 fi
 
 readonly container_name="${image//[:\/]/-}-${target}"
-event_log="$(mktemp "/tmp/ubuntu-devcontainer-installers.container-services.XXXXXX")"
+event_log="$(mktemp "${temporary_directory}/container-services.XXXXXX")"
 readonly event_log
-wait_output="$(mktemp "/tmp/ubuntu-devcontainer-installers.container-services-wait.XXXXXX")"
+wait_output="$(mktemp "${temporary_directory}/container-services-wait.XXXXXX")"
 readonly wait_output
 
 # Remove the labelled runtime container and temporary host files after every assertion path.

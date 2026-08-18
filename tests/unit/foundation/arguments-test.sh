@@ -9,7 +9,9 @@ source "${repository_root}/tests/lib/assertions.sh"
 source "${repository_root}/lib/common.sh"
 source "${repository_root}/lib/arguments.sh"
 
-temporary_root="$(mktemp -d /tmp/ubuntu-devcontainer-installers.arguments.XXXXXX)"
+readonly temporary_directory="${repository_root}/tmp"
+mkdir -p -- "${temporary_directory}"
+temporary_root="$(mktemp -d "${temporary_directory}/arguments.XXXXXX")"
 readonly temporary_root
 trap 'rm -rf -- "${temporary_root}"' EXIT
 

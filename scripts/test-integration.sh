@@ -17,7 +17,8 @@ readonly -a build_source_options
 run_id="integration-$(date -u +%Y%m%d%H%M%S)-$$-${RANDOM}"
 readonly run_id
 readonly run_label="io.github.serialprimate.test-run=${run_id}"
-readonly log_directory="/tmp/ubuntu-devcontainer-installers/${run_id}"
+readonly temporary_directory="${repository_root}/tmp"
+readonly log_directory="${temporary_directory}/${run_id}"
 mkdir -p -- "${log_directory}"
 
 # Validate selector shape before external operations
