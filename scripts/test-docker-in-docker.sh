@@ -12,7 +12,8 @@ readonly run_id
 readonly run_label="io.github.serialprimate.test-run=${run_id}"
 readonly image="ubuntu-devcontainer-installers-test:${run_id}"
 readonly container="ubuntu-devcontainer-installers-${run_id}"
-readonly log_directory="/tmp/ubuntu-devcontainer-installers/${run_id}"
+readonly temporary_directory="${repository_root}/tmp"
+readonly log_directory="${temporary_directory}/${run_id}"
 readonly log_path="${log_directory}/qualification.log"
 mkdir -p -- "${log_directory}"
 
@@ -47,7 +48,7 @@ if ! docker run --rm --privileged \
     --label "${project_label}" \
     --label "${run_label}" \
     --mount "type=bind,source=${repository_root},target=/source" \
-    --mount "type=bind,source=${log_directory},target=/tmp/ubuntu-devcontainer-installers" \
+    --mount "type=bind,source=${log_directory},target=/source/tmp/${run_id}" \
     --mount type=volume,destination=/var/lib/docker-in-docker \
     --workdir /source \
     --env DIND_QUALIFICATION_ACTIVE=1 \

@@ -22,13 +22,13 @@
 
 - Design tool calls to be input-efficient.
 - Use `rg` rather than `grep`, and `fdfind` (aka `fd`) rather than `find`.
-- Do not dump long raw streams; filter them before reading relevant portions.
+- Do not output long unfiltered streams; filter out just the required parts to read them.
 
 ## Temporary Working Files
 
-- Use `/tmp/ubuntu-devcontainer-installers/` for agent-created tool output, test logs, caches and temporary development scripts needed during a response.
-- Keep such working files out of the repository and remove them when they are no longer useful.
-- This path is an agent and development workspace, not an installer runtime convention.
+- Use the top-level `tmp/` directory for agent-created tool output, test logs, caches and temporary development scripts needed during a response.
+- Keep such working files ignored by Git and remove them when they are no longer useful.
+- This directory is an agent and development workspace, not an installer runtime convention.
 
 ## Issue Reporting
 

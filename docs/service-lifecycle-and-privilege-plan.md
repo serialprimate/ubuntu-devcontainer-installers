@@ -260,7 +260,7 @@ Add `tests/unit/container-services/` with executable `*-test.sh` programs coveri
 - component-qualified logging and stream routing; and
 - quiet wait behaviour through injected state transitions.
 
-Use project-owned assertions and temporary files under `/tmp/ubuntu-devcontainer-installers/` or `mktemp` locations appropriate to the test process. Do not require root or mutate the development container.
+Use project-owned assertions and temporary files under the top-level `tmp/` directory. Do not require root or mutate the development container.
 
 ### Integration suite
 

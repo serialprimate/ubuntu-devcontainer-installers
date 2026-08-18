@@ -51,7 +51,7 @@ revision="$(git rev-parse HEAD)"
 
 The OCI verifier inspects release metadata and runs the `packaged-artefact` suite after copying the payload from the candidate into fresh Ubuntu 26.04 stages.
 
-Detailed logs are retained under `/tmp/ubuntu-devcontainer-installers/`. The runners print the exact log path for a failed test. A full service-lifecycle qualification must run the focused `container-services` and `docker-in-docker` suites, the complete source-tree suite, the packaged-artefact suite against a candidate OCI image and the nested Docker-in-Docker qualification before release.
+Detailed logs are retained under the top-level `tmp/` directory. The runners print the exact log path for a failed test. A full service-lifecycle qualification must run the focused `container-services` and `docker-in-docker` suites, the complete source-tree suite, the packaged-artefact suite against a candidate OCI image and the nested Docker-in-Docker qualification before release.
 
 ## Unit suite layout
 
