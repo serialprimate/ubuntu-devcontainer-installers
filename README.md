@@ -108,7 +108,7 @@ Risky behaviour must never become an implicit fallback when a secure operation f
 
 ## OCI consumption
 
-The release artefact is one small `FROM scratch` OCI image containing the complete qualified installer collection, shared libraries, documentation and licence. It is not a runtime image. The `container-services` service-lifecycle implementation is included in the released collection, with the non-root Docker-in-Docker readiness fix in `0.5.1`. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
+The release artefact is one small `FROM scratch` OCI image containing the complete qualified installer collection, shared libraries, documentation and licence. It is not a runtime image. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
 
 A consuming Dockerfile can copy the collection from the published exact version:
 
@@ -182,7 +182,7 @@ docs/              Detailed project guides
 
 The root `Dockerfile` preserves the tested relationship between installer entry points and shared libraries.
 
-Shared code remains small and must not obscure installer control flow. Runtime service programs install private copies of the shared logger because the build payload need not remain present in a running image. The packaged layout will preserve the same relative relationship between `installers/` and `lib/` that is tested in the source tree. See the [architecture decisions](docs/architecture-decisions.md) for the rationale behind the product shape, composition model and release unit.
+Shared code remains small and must not obscure installer control flow. Runtime service programs install private copies of the shared logger because the build payload need not remain present in a running image. The packaged layout preserves the same relative relationship between `installers/` and `lib/` that is tested in the source tree. See the [architecture decisions](docs/architecture-decisions.md) for the rationale behind the product shape, composition model and release unit.
 
 ## Development and testing
 

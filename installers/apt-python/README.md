@@ -14,6 +14,8 @@ Ubuntu 26.04 LTS on `linux/amd64`. The installer must run as `root`.
 
 ## Usage
 
+Ubuntu Python installer invocation syntax:
+
 ```text
 install.sh [--without-pip] [--without-venv]
 ```

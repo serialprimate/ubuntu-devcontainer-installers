@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-This document records post-MVP milestone 2's security boundary for remote installation scripts and its comparison of direct Dockerfile handling with generic and tool-specific installers. The resulting `github-release` installer is available in the source tree and release `0.3.0`; this document does not approve execution of unverified remote code.
+This completed investigation records the security rationale for rejecting generic remote-script execution and compares direct Dockerfile handling with generic and tool-specific installers. Its approved narrow outcome, `github-release`, was delivered in release `0.3.0`. The [installer README](../installers/github-release/README.md) owns the exact available interface; this document owns the investigation and unapproved alternatives, not a parallel implementation specification. It does not approve execution of unverified remote code.
 
 The initial conclusion is that moving download-and-execute logic from a Dockerfile into a generic installer does not itself make the operation secure. Security comes from an explicit trust decision over the exact bytes executed, constrained execution inputs and visible ownership of the resulting system changes. A reusable installer can enforce those controls consistently, but a generic interface also broadens authority and can conceal tool-specific behaviour. The project's expert-developer, development-only audience makes an explicit literal argument and non-secret environment interface reasonable; it does not make shell evaluation, accidental secret disclosure or an unauthenticated source safe. The default design direction is therefore direct Dockerfile composition or a tool-specific installer unless multiple demonstrated tools share the same complete integrity and execution contract.
 
@@ -90,7 +90,7 @@ The cost is one maintained installer per tool and deliberate review whenever ups
 
 Generic `install-script` execution is deferred. Pinning the first-stage script authenticates only that script's bytes; it does not authenticate a mutable binary, second-stage script, package or `latest` release that the script subsequently downloads. Establishing transitive integrity would require auditing and constraining each upstream script's complete network and execution behaviour, which is no longer meaningfully generic.
 
-The approved implementation is instead a narrow `github-release` installer that:
+The approved outcome was the narrow [`github-release` installer](../installers/github-release/README.md). Its security boundary is summarised here for the comparison; the linked README owns the exact CLI, paths and behaviour. It:
 
 - selects one public repository, exact release tag and exact raw executable asset;
 - requires a caller-pinned SHA-256 digest over the downloaded executable;
@@ -105,9 +105,9 @@ The expert-developer audience remains relevant: the caller owns repository ident
 
 A script executor or unverified mode is not approved.
 
-## Candidate integrity and execution contract
+## Unapproved candidate integrity and execution contract
 
-If implementation evidence later supports a generic or semi-generic installer, its secure path should require all of the following:
+The following was a candidate evaluation contract, not approval to implement a script executor. Any future proposal needs a separate trust and scope decision before these controls could become executable instructions. The candidate secure path would require:
 
 - exactly one HTTPS source URL without embedded credentials;
 - exactly one full lowercase or uppercase SHA-256 value, normalised only for comparison;
@@ -124,11 +124,11 @@ If implementation evidence later supports a generic or semi-generic installer, i
 
 The expected digest is public integrity metadata, not a secret. Authentication credentials must not be accepted in the URL or ordinary installer options.
 
-## Environment and secret handling decision
+## Candidate environment and secret handling
 
-The expert-developer audience and common upstream installer interfaces justify literal arguments and non-secret environment assignments. A candidate generic interface may therefore provide repeatable `--argument VALUE` and `--environment NAME=VALUE` options. Each occurrence is one literal array element: the installer validates the environment name, performs no splitting or expansion and invokes the downloaded script through `env -- "${environment[@]}" bash -- "$script" "${arguments[@]}"`. This reproduces the useful part of the predecessor without reproducing its shell evaluation.
+For an independently approved future executor, the expert-developer audience and common upstream interfaces could justify literal arguments and non-secret environment assignments. The unapproved candidate interface considered repeatable `--argument VALUE` and `--environment NAME=VALUE` options. Each occurrence is one literal array element: the installer validates the environment name, performs no splitting or expansion and invokes the downloaded script through `env -- "${environment[@]}" bash -- "$script" "${arguments[@]}"`. This reproduces the useful part of the predecessor without reproducing its shell evaluation.
 
-For simple fixed values, assignment at the Dockerfile invocation site remains clearer:
+Illustrative Dockerfile fragment for a hypothetical installer's fixed, non-secret environment value; `example` is not an available installer:
 
 ```dockerfile
 RUN TOOL_INSTALL_DIR=/usr/local/bin \
@@ -204,16 +204,11 @@ RUN bash /tmp/example-install.sh --literal-argument \
 
 This is more auditable than an unverified pipeline, but it still grants the reviewed script full root authority in that build step. A multi-stage build can reduce which resulting files enter the final image, but it does not sandbox the script from the builder while the stage runs.
 
-## Remaining investigation
+## Delivered outcome and unapproved future work
 
-The approved implementation work is:
+The narrow raw-executable installer and its documentation were delivered in `0.3.0`. Its [unit suite](../tests/unit/github-release/cli-test.sh) and [integration scenarios](../tests/integration/github-release/Dockerfile) cover input validation, digest failure, installation, idempotence, destination collisions and unsupported platforms. The integration suite includes the exact Brave Search CLI `linux/amd64` asset and pinned digest; [packaged-artefact coverage](../tests/integration/packaged-artefact/Dockerfile) checks the collection's installed layout. These source mappings identify the delivered work, not a fresh claim that qualification has been rerun.
 
-1. implement and document the narrow raw-executable `github-release` contract;
-2. test exact input validation, digest failure, installation, idempotency, destination collision and unsupported-platform rejection;
-3. qualify Brave Search CLI through its exact `linux/amd64` release asset and reviewed digest;
-4. add packaged-artefact coverage;
-5. record update-time provenance or attestation automation as possible later work; and
-6. review any future script executor or controlled-risk exception separately.
+Update-time provenance or attestation automation remains an unapproved possibility, not unfinished work required for the released interface. Any future script executor or controlled-risk exception requires separate review and approval; none is authorised by this investigation.
 
 ## References
 

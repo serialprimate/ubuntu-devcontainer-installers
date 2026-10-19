@@ -16,6 +16,8 @@ Every requested shell and supplementary group must already exist. The consuming 
 
 ## Usage
 
+Development user installer invocation syntax:
+
 ```text
 install.sh [OPTIONS]
 ```
