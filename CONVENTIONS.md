@@ -6,7 +6,15 @@ This document is the authoritative source for recurring implementation, layout, 
 
 ### Authority
 
-Define each recurring convention once here. Other documents may provide context or required outcomes, but must not restate these rules in forms that can drift.
+Define each recurring convention once here. Other documents may provide context or required outcomes, but must not restate these rules in forms that can drift. Concise repetition is appropriate for safe local use when it identifies the canonical source.
+
+Documentation ownership is divided by concern:
+
+- The [repository README](README.md) owns current product purpose, audience, support, availability and release identity.
+- This document owns recurring implementation, security, verification and documentation conventions.
+- Installer READMEs own exact public CLI contracts, installed paths, operational behaviour and installer-specific prerequisites and risks. Their concrete mappings apply the recurring conventions rather than establish parallel policy.
+- [Architecture decisions](docs/architecture-decisions.md) and linked design analyses own durable rationale and design boundaries, not duplicate interface specifications.
+- The [testing guide](docs/testing.md) owns verification commands and suite mappings; the [release guide](docs/releasing.md) owns publication procedure and approval gates. Completed plans record historical delivery scope, not current instructions.
 
 When scope, terminology, support or contributor workflow changes, review all affected documentation and resolve contradictions and stale references in the same change.
 
@@ -28,6 +36,8 @@ Follow the documented audience, use restriction and platform support contract. T
 
 Start from the required observable outcome and applicable documented requirements. Choose the simplest cohesive design that satisfies them completely and leaves the affected area clear, consistent and maintainable.
 
+Keep intent, meaning, rationale and reader-facing function with the code, conventions, comments and documentation they govern. During restructuring or refactoring, preserve or deliberately relocate that value, including examples, boundaries and evidence. Assess semantic impact and coverage, not only mechanical changes.
+
 Simplicity means minimising conceptual and operational complexity, not minimising the diff, number of files changed or immediate implementation effort. Prefer a broader coordinated improvement when it produces a cleaner design or removes conflicting patterns, duplication or stale material. Do not expand scope without a concrete design or maintenance benefit.
 
 - Prefer direct, readable content and focused responsibilities.
@@ -38,9 +48,9 @@ Simplicity means minimising conceptual and operational complexity, not minimisin
 
 ### Convention precedence
 
-Before creating or changing a file, inventory the relevant comparable files. Read the canonical example and any divergent examples; use searches or validation to check the complete set. Comparable files have the same role, such as installer entry points, installer READMEs, unit tests, integration Dockerfiles or test runners. Consistency applies within a file as well as across comparable files. Comparable sections, phases, helpers and scenarios in the same file must use the same established structure, naming, comment contract, error handling and validation approach. Do not mix equivalent inline and extracted implementations without a documented reason.
+Before creating or changing a recurring file or structure, inspect the smallest sufficient set of comparable content, including the canonical example and relevant divergences. Expand inspection or validation across the affected set when shared behaviour, uncertainty or risk warrants it. Comparable files have the same role, such as installer entry points, installer READMEs, unit tests, integration Dockerfiles or test runners. Consistency applies within a file as well as across comparable files. Comparable sections, phases, helpers and scenarios in the same file must use the same established structure, naming, comment contract, error handling and validation approach. Do not mix equivalent inline and extracted implementations without a documented reason.
 
-Apply conventions in this order:
+Follow the environment's governing instruction hierarchy and explicit task constraints first. Within those limits, apply documented project-wide requirements before subsystem conventions, honour documented local specialisations and exceptions, and use established patterns only where those requirements leave a choice. For comparable implementation content, apply conventions in this order:
 
 1. explicit documented product requirements;
 2. type-specific rules in `CONVENTIONS.md` or an approved template;
@@ -184,17 +194,27 @@ Use each field consistently:
 
 Validate shared-library function contracts with the foundation comment-conformance test. The test rejects legacy contract fields, requires `Usage` and `Description` immediately above every shared-library function, and rejects output behaviour in `Returns`.
 
-## Service adapters and runtime orchestration
+### Service adapters and runtime orchestration
+
+This section owns the recurring adapter contract. The [container-services README](installers/container-services/README.md) owns its exact registration, entrypoint, readiness and runtime-state interfaces; the [service lifecycle design](docs/service-lifecycle-and-privilege.md) explains the topology and privilege decisions.
 
 The optional service interoperability contract uses the fixed provider directory `/usr/local/libexec/ubuntu-devcontainer-installers/services/`. Service identifiers must be lowercase kebab-case and must resolve only beneath that directory; registration must never accept an arbitrary executable path, generated shell code or executable drop-in discovery.
 
-An eligible service installer must install one root-owned regular executable adapter with mode `0755` and no group or other write access. The adapter must accept literal `start`, `stop` and `status` operations. `start` and `stop` require root and return zero only after the owned service operation succeeds; `status` is read-only, usable by the development user and returns zero only after functional readiness is established. The installer must document the service name, adapter path, authority, readiness definition, owned state, logs and repeated operations.
+An eligible service installer must install one root-owned regular executable adapter with exact mode `0755`. Registration must reject missing adapters, symlinks, non-regular files and unsafe ownership or modes. The adapter accepts exactly one literal `start`, `stop` or `status` operation:
 
-Service installation and runtime policy are separate. Installing a service adapter must not install `container-services`, register the service or start it. `container-services register --service NAME` is consuming-Dockerfile policy and accepts one complete ordered list. Startup follows declaration order; rollback and normal shutdown use reverse order. Registration is atomic, idempotent for an identical list and rejects a different existing manifest.
+- `start` requires root, validates privileges, mounts, prerequisites and conflicting live state, and returns zero only after functional readiness is established.
+- `stop` requires root, gracefully stops only the owned service instance, and returns zero only when that instance is stopped.
+- `status` is read-only, usable by the development user, and returns zero only when the owned service is running and functionally ready.
 
-Runtime programs must use the installed private copy of `lib/common.sh` rather than source the build payload or duplicate logging functions. All service and orchestration diagnostics use component-qualified `info`, `warning` and `error` messages with informational output on standard output and warnings and errors on standard error. Runtime state and manifests are root-owned and published atomically; readers such as `wait` and `status` never modify them.
+Adapters execute as separate programs, not sourced shell functions. Reuse the same lifecycle implementation for manual and automatic management; a narrow delegating wrapper is permitted. Verify owned process identity before stopping a process or cleaning stale state, rather than trusting a PID file alone. Define repeated operations and recovery after forced termination. Reject conflicting live instances and do not mix concurrent manual and automatic control.
 
-A service-providing installer must have unit coverage for CLI, adapter trust and lifecycle parsing, integration coverage for installation, manual and automatic operation and failure paths, and packaged-artefact coverage for bundled-library resolution and installed runtime independence from the source or OCI payload.
+Service installation and runtime policy are separate. Installing a service adapter must not install `container-services`, register the service or start it. The consuming Dockerfile owns explicit registration and image metadata; service installers must not expose automatic-registration or entrypoint-enablement options. Manual lifecycle control must remain usable without the orchestrator.
+
+Each runtime installer must install its own private copy of `lib/common.sh` beside its owned support files. Runtime programs must resolve that installed copy independently of the source tree or OCI payload and must not duplicate logging functions or source undeclared host libraries. Bundled-source execution must retain relative library resolution. Follow [Logging and diagnostics](#logging-and-diagnostics) for the shared diagnostic contract.
+
+Persistent service configuration and runtime state must be root-owned and non-writable by the development user. Publish manifests and state atomically through unique temporary files in a trusted destination directory, without following or replacing symlinks. Readiness and status readers must never modify them. Bind readiness to live process identity so stale state cannot establish success.
+
+The installer README must document the service name, adapter path, operation authority, functional-readiness definition, owned files and processes, logs, repeated operations and failure recovery. Include explicit registration and direct manual lifecycle examples, explain how to identify automatic management, and describe approved elevation choices without implying that unrestricted passwordless sudo is necessary.
 
 ### Dockerfiles
 
@@ -300,17 +320,19 @@ Do not add a generic expression language. A narrow expansion operation requires 
 
 ### Logging and diagnostics
 
-Use installer-qualified diagnostics:
+Use component-qualified diagnostics, with the installer name for installation messages, the service name for lifecycle messages and `container-services` for orchestration messages.
+
+Shared diagnostic format:
 
 ```text
-<installer>: info: <message>
-<installer>: warning: <message>
-<installer>: error: <message>
+<component>: info: <message>
+<component>: warning: <message>
+<component>: error: <message>
 ```
 
 Write progress information to standard output and warnings and errors to standard error. Errors must be concise, specific and actionable. A missing-prerequisite error must identify the prerequisite and required composition order.
 
-Do not log credentials, tokens or secret values. Preserve enough command detail in retained test logs to diagnose failures without allowing verbose output to obscure the installer-qualified error.
+Do not log credentials, tokens, secret environment values or unrelated command arguments. Preserve enough command detail in retained test logs to diagnose failures without allowing verbose output to obscure the component-qualified error. Orchestrators must preserve adapter output directly; add another error only when it supplies actionable orchestration context rather than a duplicate generic failure.
 
 ### Temporary files and cleanup
 
@@ -426,6 +448,10 @@ Run every state-changing scenario in a fresh Ubuntu 26.04 image or independent b
 
 A scenario may make multiple assertions about one resulting state. Different state assumptions require independent build targets.
 
+### Service verification
+
+A service-providing installer must have unit coverage for CLI, adapter trust and lifecycle parsing, integration coverage for installation, manual and automatic operation and failure paths, and packaged-artefact coverage for bundled-library resolution and installed runtime independence from the source or OCI payload. Retain exact component-qualified output and stream assertions when changing shared logging. The [service-lifecycle qualification procedure](docs/testing.md#service-lifecycle-qualification) maps these requirements to concrete suites and profile checks.
+
 ### Completion criteria
 
 An installer is complete when:
@@ -506,7 +532,7 @@ New or changed Markdown must pass:
 markdownlint-cli2 --config .markdownlint-cli2.jsonc <files/globs ...>
 ```
 
-Use relative links for repository files and descriptive link text. Keep examples and option names aligned with implementation and tests.
+Use relative links for repository files and descriptive link text. Keep examples and option names aligned with implementation and tests. Give every code block and table a descriptive title or caption; a specific preceding introduction or heading is sufficient, but a generic heading such as `Usage` alone is not. Use triple backticks for fenced code blocks and `-` for unordered-list markers.
 
 Do not hard-wrap Markdown prose. Keep each paragraph and list item on one physical line so a focused edit does not require re-wrapping its surrounding text. Preserve line breaks only where Markdown syntax or intentional rendered formatting requires them, such as fenced code blocks, tables, block quotes, nested lists and hard line breaks.
 

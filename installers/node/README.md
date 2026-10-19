@@ -14,6 +14,8 @@ Ubuntu 26.04 LTS on `linux/amd64`. The installer must run as `root`. Node.js 24 
 
 ## Usage
 
+Node.js installer invocation syntax:
+
 ```text
 install.sh [--node-version VERSION]
 ```

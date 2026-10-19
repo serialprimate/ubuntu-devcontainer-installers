@@ -6,7 +6,7 @@
 - Read `README.md` for current user-facing purpose, support, availability and usage.
 - Read `docs/architecture-decisions.md` when a change affects the product shape, composition model, release unit, packaging layout or remote-installation boundary.
 - Resolve the requested outcome against those documents before changing files.
-- Stop and report any material conflict between the request, authoritative documents or established repository patterns.
+- Resolve differences between established patterns using the convention precedence in `CONVENTIONS.md`; patterns do not override explicit requirements.
 
 ## Agent-Specific Constraints
 
@@ -15,7 +15,7 @@
 ## Verification and Reporting
 
 - Run relevant unit and integration tests, including packaged-artefact tests when layout or packaging can be affected.
-- If a required test interface is not implemented, run all available checks and report the limitation.
+- If a required check cannot run, first try the supported development environment described in `README.md`. Then run relevant available checks and report the limitation and materially unverified behaviour; distinguish missing tooling from missing credentials or service access.
 - Report the changes, reasons, commands run, results and potential impact on related installers, packaging and resources.
 
 ## Token Efficiency
@@ -32,10 +32,4 @@
 
 ## Issue Reporting
 
-If a request, instruction or authoritative document is materially suboptimal or incompatible, stop, summarise the specific issue concisely and ask how to proceed.
-
-## Preservation of Intent
-
-- Keep intent and meaning together with the code, conventions, instructions, comments, and documentation to which it is scoped.
-- When restructuring or refactoring, always preserve the intent and meaning of the code, conventions, instructions, comments, and documentation.
-- Always consider the impact or coverage of a change, in terms of intent and meaning and not just the mechanical effects.
+Report material defects in requests, instructions or authoritative documents. Stop and ask when resolution requires changing an approved product contract, project-wide convention or authority boundary beyond the task's approval. Resolve reasonably reversible local implementation differences within the task's scope using `CONVENTIONS.md`.

@@ -20,6 +20,8 @@ No host Docker socket may be mounted at `/var/run/docker.sock`. At runtime, the 
 
 ## Usage
 
+Docker-in-Docker installer invocation syntax:
+
 ```text
 install.sh
 ```
@@ -38,7 +40,7 @@ The `sudo` examples describe an elevation choice, not a requirement for unrestri
 
 The installer accepts only `--help`, which prints help without changing system state. The installed manual command accepts exactly one of `start`, `stop`, `status` or `--help`; invalid arity and commands return status `2`.
 
-The service adapter accepts one literal `start`, `stop` or `status` operation and delegates it to `/usr/local/sbin/docker-in-docker`. Its fixed service name is `docker-in-docker`, and its exact path is `/usr/local/libexec/ubuntu-devcontainer-installers/services/docker-in-docker`.
+The service adapter follows the recurring [service-adapter contract](../../CONVENTIONS.md#service-adapters-and-runtime-orchestration): it accepts one literal `start`, `stop` or `status` operation and delegates it to `/usr/local/sbin/docker-in-docker`. Its fixed service name is `docker-in-docker`, and its exact path is `/usr/local/libexec/ubuntu-devcontainer-installers/services/docker-in-docker`.
 
 `start` returns zero only after `docker info` proves functional readiness. `status` returns zero only when the managed process identity and Docker API are both valid. Repeated `start` fails for a managed live daemon; repeated `stop` reports that no managed daemon is running; stopped `status` returns non-zero.
 
@@ -61,7 +63,7 @@ The installer installs `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-bu
 
 **Single-instance and idempotent.** Repeating installation retains canonical repository, package, lifecycle, adapter and private-library state. A non-canonical Docker source or different root-owned runtime file is a collision and is not overwritten. Installation never registers the adapter or starts Docker.
 
-Manual control and automatic control must not be mixed concurrently. The lifecycle command verifies its managed PID, command-line data root, PID file and Docker API. It removes only stale installer-owned PID state and an unmounted, nonresponsive socket; a mounted or live unmanaged socket is rejected. A registration manifest is owned by `container-services`, so removing registration or stopping the orchestrator does not change this installer’s manual command.
+Manual control and automatic control must not be mixed concurrently. The lifecycle command verifies its managed PID, command-line data root, PID file and Docker API. It removes only stale installer-owned PID state and an unmounted, nonresponsive socket; a mounted or live unmanaged socket is rejected. The [registration manifest](../container-services/README.md#installed-files-and-commands) identifies whether Docker-in-Docker is selected for automatic management; inspect it and `container-services status` before choosing manual control. The manifest is owned by `container-services`, so removing registration or stopping the orchestrator does not change this installer’s manual command.
 
 ## Network sources and integrity
 
@@ -71,9 +73,10 @@ The signing key is downloaded over HTTPS from `https://download.docker.com/linux
 
 ## Examples
 
-Install explicit prerequisites, Docker-in-Docker and `container-services`, then register the adapter in one layer:
+After copying the installer payload, use this Dockerfile fragment to install explicit prerequisites, Docker-in-Docker and `container-services`, then register the adapter in one layer:
 
 ```dockerfile
+# Install prerequisites and both components before explicit registration
 RUN /opt/ubuntu-devcontainer-installers/installers/apt-packages/install.sh \
         --package ca-certificates \
         --package curl \
@@ -96,6 +99,6 @@ docker run --rm --privileged \
 
 ## Known limitations
 
-Docker-in-Docker necessarily requires broad runtime privilege; Linux capabilities cannot safely express all nested daemon requirements. The data root is not configurable because host-persistent state is outside this milestone and nested overlay-on-overlay filesystems are not reliable. The anonymous volume consumes outer-Docker storage while the development container exists. Docker removes it automatically only because the required outer container uses `--rm`; interrupted tooling that leaves the container present also leaves its attached volume until that container is removed with volumes.
+Docker-in-Docker necessarily requires broad runtime privilege; Linux capabilities cannot safely express all nested daemon requirements. The data root is not configurable because host-persistent state is outside the supported design and nested overlay-on-overlay filesystems are not reliable. The anonymous volume consumes outer-Docker storage while the development container exists. Docker removes it automatically only because the required outer container uses `--rm`; interrupted tooling that leaves the container present also leaves its attached volume until that container is removed with volumes.
 
 The command does not run as PID 1, supervise automatic restart or integrate with systemd. The adapter and orchestrator add no timeout beyond the daemon's existing 60-second readiness and shutdown checks. An outer runtime may forcibly terminate a deliberately hanging service adapter after its own stop timeout; forced termination can leave stale ephemeral state, which the next invocation validates rather than trusting.

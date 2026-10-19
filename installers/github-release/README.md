@@ -24,6 +24,8 @@ The Ubuntu base image must also provide `coreutils` and `sed`, as it does by def
 
 ## Usage
 
+Digest-pinned GitHub Release installer invocation syntax:
+
 ```text
 install.sh \
     --repository OWNER/REPOSITORY \

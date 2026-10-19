@@ -2,6 +2,8 @@
 
 ## Intended outcome
 
+This document owns the Docker-in-Docker threat analysis and residual risks. The [installer README](../installers/docker-in-docker/README.md) owns exact prerequisites, installed paths and lifecycle behaviour; the [service-adapter conventions](../CONVENTIONS.md#service-adapters-and-runtime-orchestration) own the recurring trust contract.
+
 The Docker-in-Docker installer supports project integration tests inside a disposable Ubuntu 26.04 development container. It installs the official Docker Engine packages, leaves the daemon stopped after image construction and provides explicit `start`, `stop` and `status` operations.
 
 The design must not mount a host Docker socket, create host-persistent named volumes, expose a TCP daemon endpoint or depend on a system service manager. Nested Docker state belongs to an anonymous outer-Docker volume mounted at `/var/lib/docker-in-docker`. The outer container must use `--rm`, which makes Docker remove the anonymous volume with that container. The dedicated backing mount lets the daemon use its supported default copy-on-write backend without unreliable overlay-on-overlay mounts.
@@ -33,4 +35,6 @@ The official Docker APT repository is a separately trusted network source. TLS p
 
 ## Qualification requirements
 
-Qualification requires isolated installation tests, rejection of startup without the data mount, a privileged daemon lifecycle test using a non-`vfs` backend, proof that outer `--rm` deletes the anonymous volume, a nested container execution test and the complete project unit and integration suite using the installed daemon. When the adapter is registered, qualification additionally covers root entrypoint startup, non-root readiness and aggregate status, ordered rollback and reverse shutdown, signal forwarding and forced termination of a deliberately hanging adapter. Workflow-produced release `0.2.0` and its immutable OCI digest are available. The candidate Dev Container profile was independently built, passed the complete project suite through its installed daemon and replaced the public profile.
+The [service-lifecycle qualification procedure](testing.md#service-lifecycle-qualification) owns the concrete suite mappings and command sequence, including dedicated-mount rejection, non-`vfs` storage, nested execution, anonymous-volume cleanup, manual and automatic lifecycle, non-root readiness, rollback, shutdown, signal forwarding and forced termination. Those checks supply evidence for the controls above rather than remove the residual risks.
+
+Historically, release `0.2.0` introduced Docker-in-Docker and its candidate public profile was qualified through the installed daemon before migration. Release `0.5.0` introduced the optional service adapter and orchestrator, and `0.5.1` corrected non-root readiness. Use the [release qualification records](releasing.md#qualification-record), not these historical milestones, as evidence for a specific published revision.
