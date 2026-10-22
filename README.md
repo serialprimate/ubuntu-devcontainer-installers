@@ -51,7 +51,7 @@ Installers must reject unsupported operating systems and Ubuntu releases rather 
 
 ## Installer status
 
-The current installer collection is available from the source tree and the published OCI image:
+The released installer collection is available from the source tree and the published OCI image. Entries marked source-only are not included in published release `0.5.1`:
 
 | Installer | Purpose | Status |
 | --- | --- | --- |
@@ -64,7 +64,10 @@ The current installer collection is available from the source tree and the publi
 | [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Updated in 0.4.0 |
 | [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
 | [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Released in 0.1.0 |
+| [`playwright-deps`](installers/playwright-deps/README.md) | Install reviewed Ubuntu dependencies for project-local Chromium and Playwright CLI | Source-only; unreleased |
 | [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Released in 0.1.0 |
+
+Playwright projects keep their JavaScript or TypeScript tests, npm packages and browser downloads local to the project; `playwright-deps` installs only Ubuntu dependencies for an exact supported target. It does not install a global Playwright command or browsers. See its README for the two project-local browser storage patterns and the [qualification guide](docs/testing.md#playwright-dependency-qualification).
 
 Tools available through npm or pipx can be selected explicitly with the generic package installers. Tools that publish raw GitHub Release executables can use the integrity-controlled `github-release` installer. Generic remote bootstrap-script execution is excluded because the [installation-script handling investigation](docs/install-script-investigation.md) found that pinning a bootstrap script does not verify mutable downstream downloads.
 

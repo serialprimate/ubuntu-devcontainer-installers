@@ -70,6 +70,33 @@ An integration suite contains:
 
 Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, a unique image tag and project and test-run OCI labels. A suite may add executable `run-target.sh` runtime assertions; the runner supplies the built image, target and required resource labels. The `container-services` suite uses trusted fake adapters to qualify ordered startup, readiness, rollback, reverse shutdown, signal forwarding, read-only non-root wait/status, stale state and the documented outer-runtime forced-termination limitation. Docker-in-Docker lifecycle assertions use this hook to run the installed image with the documented privilege and explicit startup and shutdown, retaining manual and automatic adapter paths.
 
+## Playwright dependency qualification
+
+The `playwright-deps` suite qualifies the dependency-only Ubuntu installer separately from a minimal consuming project. The initial target is Playwright `1.64.0`, Node.js 24, Ubuntu 26.04 and `linux/amd64`; Firefox, WebKit and the separately packaged `@playwright/cli` wrapper are not included. The [installer README](../installers/playwright-deps/README.md) owns supported targets, project workflows, storage and trust limitations.
+
+Unit coverage verifies exact stable-version validation, unsupported-version diagnostics, the mapped default, duplicate options and default/explicit package-list equivalence using isolated recording libraries. It runs without changing the development host's package state.
+
+Integration targets independently exercise default/explicit/repeated installation without Node.js, unchanged state on unsupported versions, unsupported OS/architecture, missing APT, APT refresh failure and non-root rejection. `expected-packages.txt` is an independent reviewed snapshot checked against installed package state, not an upstream resolver. When updating the profile, review and update that expectation alongside the source mapping.
+
+The `separate-storage-success` and `package-storage-success` targets create a non-root project with exact, locked local npm dependencies and install both Chromium variants explicitly. The fixture's `project-playwright.cjs` helper resolves the local package and storage from its own project root; `playwright.config.cjs` and `playwright-cli.config.json` configure test and CLI modes independently. JavaScript and TypeScript interaction tests run against regular Chromium in new headless mode and Chromium Headless Shell. TypeScript is transformed by Playwright, not type-checked; no extra compiler or web framework is installed.
+
+`verify-project.cjs` asserts the user and ownership, target versions, absence of global Playwright packages, actual browser launch paths and headless arguments, real CLI interaction and unconditional session close, path-mismatch failures and unchanged Ubuntu package state. Setup downloads npm packages and browser archives through their documented network sources. Browser tests and CLI sessions run in `RUN --network=none` steps using in-memory HTML, with no display server or external site. Launch diagnostics distinguish the executable paths rather than relying on test-project labels.
+
+The separate-store target reinstalls npm dependencies and reruns checks with retained browsers. The package-store target demonstrates removal by `npm ci`, an actionable missing-browser failure without an automatic download, explicit reinstall and restored operation. All caches start empty. Diagnostic output and failed assertions are retained in the integration runner's existing per-target logs; test-only browser files stay inside disposable Docker images.
+
+Run focused source checks and either complete browser target from the repository root:
+
+```bash
+./scripts/test-unit.sh foundation playwright-deps
+./scripts/test-integration.sh playwright-deps
+./scripts/test-integration.sh playwright-deps separate-storage-success
+./scripts/test-integration.sh playwright-deps package-storage-success
+```
+
+Use the [candidate verification commands](#oci-candidate-verification) for packaged coverage. The packaged suite verifies the exact payload set and executable mode plus `playwright-default`, `playwright-explicit` and `playwright-unsupported`, always invoking candidate-provided installers/libraries. It does not duplicate the full browser matrix or add browser binaries to the product payload. Run all affected targets and the complete source entry point before claiming implementation qualification; publication still follows the release guide.
+
+For another proposed supported target, first review its Ubuntu dependency groups and package/transitive impact, obtain dependency approval where needed, and select matching exact npm fixture versions and source references. Preserve the release-age and package-script policies. Repeat the browser and CLI checks even if the Ubuntu package list is identical. Never infer version support from package names, a successful help invocation or a previously populated developer cache.
+
 ## Service-lifecycle qualification
 
 This procedure verifies changes to service adapters, orchestration, shared runtime logging or their consuming profiles. Start in the supported development environment with a usable Docker endpoint; follow the [service-verification requirements](../CONVENTIONS.md#service-verification) and the public contracts in the [container-services README](../installers/container-services/README.md) and [Docker-in-Docker README](../installers/docker-in-docker/README.md). A missing capability or failed assertion is a qualification limitation or defect, not a reason to weaken the intended contract.

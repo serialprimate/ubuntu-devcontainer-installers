@@ -10,6 +10,12 @@ The canonical product is a collection of explicit Bash installation programs rat
 
 Consuming Dockerfiles install prerequisites and invoke installers in the required order. Installers do not infer or install unrelated toolchains. This keeps layer ownership, prerequisite selection and system changes visible to the consumer and avoids a hidden dependency framework.
 
+## Project-owned browser runtime
+
+Browser support separates root-owned operating-system dependencies from project-owned application packages and browser binaries. A dependency installer selects a reviewed local package profile for an explicitly supported Playwright target; it does not discover dependencies upstream during installation, install a JavaScript toolchain or provide a shared browser service.
+
+Projects select their npm packages and matching browsers and retain them in their existing workspace or local dependency tree. This avoids baking browser revisions into every development image or requiring a shared cache volume. It trades cross-project deduplication and offline image completeness for independent project lifecycle and space management. Consumers coordinate their image dependency target and project lockfile; a version selector is not automatic enforcement of later project upgrades or verification of downloaded browser archives. The [Playwright dependencies README](../installers/playwright-deps/README.md) owns the exact supported interface and operational consequences.
+
 ## Collection release unit
 
 The complete installer collection uses one Semantic Versioning release version and one OCI image. Independent installer versions or images would add publication and consumption complexity without a demonstrated need. The image preserves the source relationship between `installers/` and `lib/` so the packaged programs use the same bundled-library resolution tested in the repository.
