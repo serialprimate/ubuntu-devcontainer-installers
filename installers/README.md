@@ -12,7 +12,10 @@ Available installers:
 - [`node`](node/README.md) installs a supported Node.js major from the signed NodeSource repository;
 - [`npm-packages`](npm-packages/README.md) installs literal global npm registry packages with a configurable release-age delay;
 - [`pipx`](pipx/README.md) installs a selected pipx release with a configurable release-age delay;
-- [`pipx-packages`](pipx-packages/README.md) installs literal global PyPI applications with a configurable cooldown; and
+- [`pipx-packages`](pipx-packages/README.md) installs literal global PyPI applications with a configurable cooldown;
+- [`playwright-deps`](playwright-deps/README.md) installs reviewed Ubuntu Chromium dependencies for an exact supported project-local Playwright target (source-only; unreleased); and
 - [`user`](user/README.md) establishes an explicit development user identity and optional, controlled-risk passwordless sudo access.
+
+The source-only `playwright-deps` installer is not present in published release `0.5.1`; use source-tree consumption or a verified development candidate until an approved release includes it.
 
 Copy the complete repository layout when consuming these installers so each entry point retains its `../../lib` relationship. The service orchestrator and adapter registration are available from release `0.5.0`; use `0.5.1` or later for the non-root Docker-in-Docker readiness fix. The current release is available at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` and preserves the layout under `/ubuntu-devcontainer-installers`. Prefer the immutable digest documented in the repository README.

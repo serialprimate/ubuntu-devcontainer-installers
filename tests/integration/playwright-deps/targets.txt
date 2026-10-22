@@ -1,0 +1,13 @@
+default-success
+explicit-success
+repeated-success
+unsupported-version-failure
+unsupported-platform-failure
+unsupported-architecture-failure
+prerequisite-failure
+apt-failure
+non-root-failure
+separate-storage-success
+package-storage-success
+separate-storage-1-64-0-success
+package-storage-1-64-0-success

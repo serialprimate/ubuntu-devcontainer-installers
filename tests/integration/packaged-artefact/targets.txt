@@ -3,3 +3,6 @@ container-services-runtime
 docker-adapter-registration
 apt-repeated
 user-idempotent
+playwright-default
+playwright-explicit
+playwright-unsupported

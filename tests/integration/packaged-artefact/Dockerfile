@@ -24,7 +24,7 @@ RUN test -f /opt/ubuntu-devcontainer-installers/LICENSE \
         | sort | tr '\n' ' ')" = 'LICENSE README.md installers lib ' \
     && test "$(find /opt/ubuntu-devcontainer-installers/installers -mindepth 1 -maxdepth 1 \
         -type d -printf '%f\n' | sort | tr '\n' ' ')" \
-        = 'apt-packages apt-python container-services docker-in-docker github-release node npm-packages pipx pipx-packages user ' \
+        = 'apt-packages apt-python container-services docker-in-docker github-release node npm-packages pipx pipx-packages playwright-deps user ' \
     && while IFS= read -r packaged_file; do \
         test "$(stat -c '%a' "${packaged_file}")" = 644; \
     done < <(find /opt/ubuntu-devcontainer-installers -type f ! -name install.sh \
@@ -38,7 +38,7 @@ RUN test -f /opt/ubuntu-devcontainer-installers/LICENSE \
     && test "$(stat -c '%a' \
         /opt/ubuntu-devcontainer-installers/installers/docker-in-docker/container-service)" = 755 \
     && for installer in apt-packages apt-python container-services docker-in-docker github-release node npm-packages \
-        pipx pipx-packages user; do \
+        pipx pipx-packages playwright-deps user; do \
         test "$(stat -c '%a' \
             "/opt/ubuntu-devcontainer-installers/installers/${installer}/install.sh")" = 755 \
             && "/opt/ubuntu-devcontainer-installers/installers/${installer}/install.sh" --help \
@@ -104,3 +104,34 @@ RUN /opt/ubuntu-devcontainer-installers/installers/user/install.sh \
         --shell /bin/bash \
     && test "$(id -u devcontainer)" = 1000 \
     && test "$(id -g devcontainer)" = 1000
+
+# Adds only independent test assertions to the candidate-only installer payload
+FROM packaged-base AS playwright-checks
+
+# Copies the expected package state without copying a source-tree installer or library
+COPY tests/integration/playwright-deps/assert-dependencies.sh tests/integration/playwright-deps/expected-packages.txt /checks/
+
+# Verifies default selection through the packaged entry point
+FROM playwright-checks AS playwright-default
+
+# Installs from the exact OCI candidate and verifies dependency-only state and APT cleanup
+RUN /opt/ubuntu-devcontainer-installers/installers/playwright-deps/install.sh \
+    && /checks/assert-dependencies.sh
+
+# Verifies explicit target selection independently through the packaged entry point
+FROM playwright-checks AS playwright-explicit
+
+# Resolves the approved target without source-tree fallback
+RUN /opt/ubuntu-devcontainer-installers/installers/playwright-deps/install.sh --playwright-version 1.64.0 \
+    && /checks/assert-dependencies.sh
+
+# Rejects unsupported targets through the packaged entry point without APT changes
+FROM packaged-base AS playwright-unsupported
+
+# Captures the rejection and proves the package database and clean APT state remain unchanged
+RUN before="$(sha256sum /var/lib/dpkg/status)" \
+    && if /opt/ubuntu-devcontainer-installers/installers/playwright-deps/install.sh \
+        --playwright-version 1.64.2 >/tmp/playwright-error 2>&1; then exit 1; fi \
+    && test "${before}" = "$(sha256sum /var/lib/dpkg/status)" \
+    && test -z "$(ls -A /var/lib/apt/lists)" \
+    && [[ "$(</tmp/playwright-error)" == *'unsupported Playwright version: 1.64.2; supported versions: 1.64.0, 1.64.1'* ]]
