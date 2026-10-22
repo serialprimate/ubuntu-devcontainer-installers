@@ -5,9 +5,10 @@ set -euo pipefail
 
 # Define the release-fixed target and reviewed Chromium package profile
 readonly installer='playwright-deps'
-readonly default_playwright_version='1.64.0'
-# Preserve upstream's ubuntu26.04-x64 tools + chromium groups from Playwright v1.64.0
-# Source commit: 606ecd8b34bac100db32561b6278ffd76e5eb3cd (nativeDeps.ts)
+readonly default_playwright_version='1.64.1'
+# Preserve identical ubuntu26.04-x64 tools + chromium groups from upstream nativeDeps.ts
+# - 1.64.0 source commit: 606ecd8b34bac100db32561b6278ffd76e5eb3cd
+# - 1.64.1 source commit: cfe490d941f992655948eee8fd4fd94e1c4234bf
 readonly -a chromium_packages=(
     fonts-freefont-ttf
     fonts-ipafont-gothic
@@ -67,10 +68,10 @@ Install Ubuntu 26.04 (linux/amd64) dependencies for bundled Chromium and its hea
 
 Options:
   --playwright-version VERSION  Select an exact supported Playwright target;
-                                may be specified once (default: 1.64.0).
+                                may be specified once (default: 1.64.1).
   --help                        Show this help without changing state.
 
-Supported Playwright versions: 1.64.0
+Supported Playwright versions: 1.64.0, 1.64.1
 Installs Ubuntu libraries, fonts and tools only, not Node.js, npm packages or browsers.
 Firefox and WebKit are not supported by this profile. No browser selector is provided.
 EOF
@@ -115,9 +116,9 @@ main() {
         return 1
     fi
     case "${playwright_version}" in
-        1.64.0) packages=("${chromium_packages[@]}") ;;
+        1.64.0 | 1.64.1) packages=("${chromium_packages[@]}") ;;
         *)
-            die "${installer}" "unsupported Playwright version: ${playwright_version}; supported versions: 1.64.0."
+            die "${installer}" "unsupported Playwright version: ${playwright_version}; supported versions: 1.64.0, 1.64.1."
             return 1
             ;;
     esac

@@ -131,7 +131,7 @@ FROM packaged-base AS playwright-unsupported
 # Captures the rejection and proves the package database and clean APT state remain unchanged
 RUN before="$(sha256sum /var/lib/dpkg/status)" \
     && if /opt/ubuntu-devcontainer-installers/installers/playwright-deps/install.sh \
-        --playwright-version 1.64.1 >/tmp/playwright-error 2>&1; then exit 1; fi \
+        --playwright-version 1.64.2 >/tmp/playwright-error 2>&1; then exit 1; fi \
     && test "${before}" = "$(sha256sum /var/lib/dpkg/status)" \
     && test -z "$(ls -A /var/lib/apt/lists)" \
-    && [[ "$(</tmp/playwright-error)" == *'unsupported Playwright version: 1.64.1; supported versions: 1.64.0'* ]]
+    && [[ "$(</tmp/playwright-error)" == *'unsupported Playwright version: 1.64.2; supported versions: 1.64.0, 1.64.1'* ]]

@@ -12,8 +12,8 @@ readonly installer="${repository_root}/installers/playwright-deps/install.sh"
 
 # Check help without requiring root, a supported host or APT access
 output="$("${installer}" --help)"
-assert_contains 'default: 1.64.0' "${output}"
-assert_contains 'Supported Playwright versions: 1.64.0' "${output}"
+assert_contains 'default: 1.64.1' "${output}"
+assert_contains 'Supported Playwright versions: 1.64.0, 1.64.1' "${output}"
 assert_contains 'not Node.js, npm packages or browsers' "${output}"
 
 # Reject malformed versions, including empty values, before root or platform checks
@@ -29,13 +29,13 @@ for version in '' latest lts 1 1.64 01.64.1 1.064.1 1.64.01 '^1.64.1' '1.64.*' \
 done
 
 # Report well-formed but unsupported targets with the exact supported-version list
-for version in 0.0.0 1.64.1 1.64.2 2.0.0 999999999999999999999.0.0; do
+for version in 0.0.0 1.63.0 1.64.2 2.0.0 999999999999999999999.0.0; do
     set +e
     output="$("${installer}" --playwright-version "${version}" 2>&1)"
     status=$?
     set -e
     assert_equal '1' "${status}"
-    assert_contains "unsupported Playwright version: ${version}; supported versions: 1.64.0" "${output}"
+    assert_contains "unsupported Playwright version: ${version}; supported versions: 1.64.0, 1.64.1" "${output}"
 done
 
 # Reject missing values, repeated selectors, unknown options and positional arguments
@@ -72,7 +72,7 @@ readonly copied_installer="${workspace}/installers/playwright-deps/install.sh"
 
 # Resolve the release-fixed default to the reviewed non-empty profile
 output="$(cd / && "${copied_installer}")"
-assert_contains 'Chromium dependencies for Playwright 1.64.0' "${output}"
+assert_contains 'Chromium dependencies for Playwright 1.64.1' "${output}"
 assert_equal $'root\nplatform\napt' "$(<"${TRACE}")"
 package_count="$(wc -l <"${PACKAGES}" | tr -d ' ')"
 unique_count="$(sort -u "${PACKAGES}" | wc -l | tr -d ' ')"
@@ -80,12 +80,14 @@ assert_equal '33' "${package_count}"
 assert_equal '33' "${unique_count}"
 cp -- "${PACKAGES}" "${workspace}/default-packages"
 
-# Explicit supported selection is identical to omission and remains independent of caller CWD
-: >"${TRACE}"
-output="$(cd / && "${copied_installer}" --playwright-version 1.64.0)"
-assert_contains 'Chromium dependencies for Playwright 1.64.0' "${output}"
-cmp -- "${workspace}/default-packages" "${PACKAGES}"
-assert_equal $'root\nplatform\napt' "$(<"${TRACE}")"
+# Both explicit versions share the reviewed profile without silently changing the selected target
+for version in 1.64.0 1.64.1; do
+    : >"${TRACE}"
+    output="$(cd / && "${copied_installer}" --playwright-version "${version}")"
+    assert_contains "Chromium dependencies for Playwright ${version}" "${output}"
+    cmp -- "${workspace}/default-packages" "${PACKAGES}"
+    assert_equal $'root\nplatform\napt' "$(<"${TRACE}")"
+done
 
 # Invalid selection and help never reach privilege checks or package installation
 : >"${TRACE}"

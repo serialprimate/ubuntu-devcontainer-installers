@@ -13,8 +13,11 @@ const wrapper = path.join(root, 'project-playwright.cjs');
 const cli = path.join(path.dirname(require.resolve('@playwright/test/package.json')), 'cli.js');
 const core = path.dirname(require.resolve('playwright-core/package.json'));
 const browserRoot = storage === 'package' ? path.join(core, '.local-browsers') : path.join(root, 'ms-playwright');
-assert.equal(require('playwright/package.json').version, '1.64.0');
-assert.equal(require('@playwright/test/package.json').version, '1.64.0');
+const target = process.env.PLAYWRIGHT_TEST_TARGET;
+assert(['1.64.0', '1.64.1'].includes(target), 'image must specify an exact supported qualification target');
+for (const name of ['@playwright/test', 'playwright', 'playwright-core']) {
+    assert.equal(require(`${name}/package.json`).version, target, `${name} must match the image target`);
+}
 assert.equal(spawnSync('/bin/bash', ['-c', 'if command -v playwright >/dev/null; then exit 0; else exit 1; fi'], { encoding: 'utf8' }).status, 1,
     'a global Playwright command would invalidate local-resolution evidence');
 const dpkgBefore = crypto.createHash('sha256').update(fs.readFileSync('/var/lib/dpkg/status')).digest('hex');

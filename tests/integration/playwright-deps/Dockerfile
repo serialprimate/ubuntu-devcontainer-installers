@@ -38,7 +38,7 @@ FROM installer-base AS repeated-success
 # Repeats both equivalent selections without removing existing unrelated packages
 RUN /workspace/installers/playwright-deps/install.sh \
     && /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.0 \
-    && /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.0 \
+    && /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.1 \
     && /checks/assert-dependencies.sh
 
 # Rejects unsupported targets without changing package or repository state
@@ -46,8 +46,8 @@ FROM installer-base AS unsupported-version-failure
 
 # Confirms that a nearby version is not inferred to be supported
 RUN before="$(sha256sum /var/lib/dpkg/status /etc/apt/sources.list.d/ubuntu.sources)" \
-    && /checks/assert-command-fails.sh 1 'supported versions: 1.64.0' \
-        /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.1 \
+    && /checks/assert-command-fails.sh 1 'supported versions: 1.64.0, 1.64.1' \
+        /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.2 \
     && test "${before}" = "$(sha256sum /var/lib/dpkg/status /etc/apt/sources.list.d/ubuntu.sources)" \
     && test -z "$(ls -A /var/lib/apt/lists)"
 
@@ -110,19 +110,37 @@ COPY installers/user /workspace/installers/user
 # Installs root-owned image components before switching permanently to the development user
 RUN /workspace/installers/apt-packages/install.sh --package ca-certificates --package curl --package gnupg \
     && /workspace/installers/node/install.sh --node-version 24 \
-    && /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.0 \
+    && /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.1 \
     && /workspace/installers/user/install.sh
 
 # Copies the minimal locked test project with user-owned, writable project storage
 COPY --chown=1000:1000 tests/integration/playwright-deps/project /home/dev/project
 
 USER dev
-ENV HOME=/home/dev XDG_CACHE_HOME=/home/dev/project/.cache CI=1 NO_UPDATE_NOTIFIER=1
+ENV HOME=/home/dev XDG_CACHE_HOME=/home/dev/project/.cache CI=1 NO_UPDATE_NOTIFIER=1 \
+    PLAYWRIGHT_TEST_TARGET=1.64.1
 WORKDIR /home/dev/project
 
 # Installs only locked local packages without lifecycle scripts or a global Playwright command
 RUN test "$(id -u)" != 0 \
     && npm ci --ignore-scripts --no-audit --no-fund --min-release-age=7
+
+# Preserves independently locked packages for the retained supported version
+FROM browser-base AS browser-1-64-0-base
+
+USER root
+
+# Exercises cross-version profile reuse before qualifying the retained project package version
+RUN /workspace/installers/playwright-deps/install.sh --playwright-version 1.64.0
+
+# Replaces only manifests while sharing all browser tests, helpers and configuration
+COPY --chown=1000:1000 tests/integration/playwright-deps/project-1-64-0/ /home/dev/project/
+
+USER dev
+ENV PLAYWRIGHT_TEST_TARGET=1.64.0
+
+# Installs the retained version from its original lockfile without weakening the release-age policy
+RUN npm ci --ignore-scripts --no-audit --no-fund --min-release-age=7
 
 # Retains a project-owned browser directory across npm dependency reinstalls
 FROM browser-base AS separate-storage-success
@@ -159,4 +177,41 @@ RUN --network=none node verify-project.cjs package missing
 RUN node project-playwright.cjs package install chromium
 
 # Requalifies the restored project-local browsers and CLI without external networking
+RUN --network=none node verify-project.cjs package
+
+# Qualifies the retained version with separate project-local browser storage
+FROM browser-1-64-0-base AS separate-storage-1-64-0-success
+
+# Downloads the retained target's matching browsers without sharing a prior fixture cache
+RUN node project-playwright.cjs separate install chromium
+
+# Exercises both headless executables, JavaScript, TypeScript and CLI on the retained version
+RUN --network=none node verify-project.cjs separate
+
+# Keeps the separate browser store while reinstalling the retained locked npm dependencies
+RUN npm ci --ignore-scripts --no-audit --no-fund --min-release-age=7 \
+    && test -d ms-playwright
+
+# Verifies reuse after npm ci without allowing implicit browser downloads
+RUN --network=none node verify-project.cjs separate
+
+# Qualifies the retained version with browsers beneath its own local package tree
+FROM browser-1-64-0-base AS package-storage-1-64-0-success
+
+# Downloads both variants for the retained version into its resolved Playwright package
+RUN node project-playwright.cjs package install chromium
+
+# Exercises the retained version's package-local browser and CLI paths without networking
+RUN --network=none node verify-project.cjs package
+
+# Removes the retained version's package-local browsers through a real dependency reinstall
+RUN npm ci --ignore-scripts --no-audit --no-fund --min-release-age=7
+
+# Proves that removing package-local browsers requires an explicit reinstall
+RUN --network=none node verify-project.cjs package missing
+
+# Restores only the retained target's Chromium browsers through the normal explicit command
+RUN node project-playwright.cjs package install chromium
+
+# Verifies restored functionality for the retained supported version
 RUN --network=none node verify-project.cjs package

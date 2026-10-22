@@ -8,9 +8,9 @@ This installer is available in the source tree and development OCI candidates on
 
 ## Supported platform
 
-Ubuntu 26.04 LTS on `linux/amd64`, executed as root during an image build. The supported Playwright target and release-fixed default are **1.64.0**. Project-local qualification uses Node.js 24 and tests both Chromium executable paths plus the embedded CLI; see the [testing guide](../../docs/testing.md#playwright-dependency-qualification) for scope and commands.
+Ubuntu 26.04 LTS on `linux/amd64`, executed as root during an image build. The supported Playwright targets are **1.64.0 and 1.64.1**, with **1.64.1** as the release-fixed default. Project-local qualification uses Node.js 24 and tests both Chromium executable paths plus the embedded CLI; see the [testing guide](../../docs/testing.md#playwright-dependency-qualification) for scope and commands.
 
-The target deliberately pins an older stable release that satisfies the seven-day npm release-age policy at initial implementation. It does not follow npm's mutable `latest` tag. Adding another supported version requires review and qualification; neighbouring patches and minor versions are not inferred compatible.
+The default was upgraded from 1.64.0 after all three 1.64.1 npm packages passed the seven-day minimum release age. The youngest package, `@playwright/test@1.64.1`, was published on 2026-10-14 at 11:58:13.696 UTC and became eligible on 2026-10-21 at that time. Explicit 1.64.0 selection remains supported. Both exact releases share the same reviewed dependency profile; the installer never follows npm's mutable `latest` tag or infers compatibility with other patches or minor versions.
 
 Firefox, WebKit, branded Google Chrome and Microsoft Edge are outside this dependency profile. There is no browser selector.
 
@@ -30,7 +30,7 @@ install.sh [--playwright-version VERSION] [--help]
 
 ## Options
 
-- `--playwright-version VERSION`: selects the dependencies reviewed for an exact stable Playwright release. May be specified once, with a separate value. The default and only supported version are `1.64.0`.
+- `--playwright-version VERSION`: selects the dependencies reviewed for an exact stable Playwright release. May be specified once, with a separate value. Supported values are `1.64.0` and `1.64.1`; the default is `1.64.1`.
 - `--help`: prints help, including the default and supported targets, without changing system state.
 
 The selector identifies the underlying Playwright release, not the version of a separately published CLI wrapper. It does not install an npm package. Empty values, leading-zero version components, ranges, partial versions, aliases, tags, prereleases and build metadata are rejected. Well-formed but unsupported versions fail with the supported-version list before APT changes. Unknown options, positional arguments, attached option forms and repeated selectors are rejected.
@@ -39,7 +39,7 @@ Omitting the selector uses this collection release's fixed baseline; it never qu
 
 ## Installed files and commands
 
-The profile is the deduplicated union of the upstream Ubuntu 26.04 `tools` and `chromium` groups: 33 direct package names in the installer's [reviewed array](install.sh), derived from [Playwright source commit 606ecd8b34bac100db32561b6278ffd76e5eb3cd](https://github.com/microsoft/playwright/blob/606ecd8b34bac100db32561b6278ffd76e5eb3cd/packages/playwright-core/src/server/registry/nativeDeps.ts).
+The profile is the deduplicated union of the upstream Ubuntu 26.04 `tools` and `chromium` groups: 33 direct package names in the installer's [reviewed array](install.sh), reviewed against the identical groups in [Playwright 1.64.0 source commit 606ecd8b34bac100db32561b6278ffd76e5eb3cd](https://github.com/microsoft/playwright/blob/606ecd8b34bac100db32561b6278ffd76e5eb3cd/packages/playwright-core/src/server/registry/nativeDeps.ts) and [Playwright 1.64.1 source commit cfe490d941f992655948eee8fd4fd94e1c4234bf](https://github.com/microsoft/playwright/blob/cfe490d941f992655948eee8fd4fd94e1c4234bf/packages/playwright-core/src/server/registry/nativeDeps.ts). No additional Ubuntu packages are introduced by 1.64.1 support.
 
 Ubuntu packages supply shared libraries, font assets and tools including `Xvfb`. Installing Xvfb does not create a display session or desktop. The documented headless workflow does not invoke it. No installer-specific runtime configuration, user-owned cache, environment variable, entrypoint or service registration is created.
 
@@ -47,7 +47,7 @@ APT installs without recommended packages and owns normal transitive resolution.
 
 ## Repeated invocation
 
-**Idempotent for the selected profile.** Default and explicit selection of `1.64.0` ensure the same package requirements. Every invocation independently refreshes APT indexes, installs required packages and cleans APT metadata/caches. It does not remove unrelated or previously installed packages.
+**Idempotent for the selected profile.** Default selection of `1.64.1` and explicit selection of either supported version ensure the same package requirements. Successive 1.64.0/1.64.1 invocations reuse the shared profile without removing packages or changing project-local npm versions. Every invocation independently refreshes APT indexes, installs required packages and cleans APT metadata/caches. It does not remove unrelated or previously installed packages.
 
 Profile selection does not pin Ubuntu package binaries; APT still uses versions available in configured repositories. If additional profiles are introduced, successive selections are not isolated environments or a mechanism for uninstalling/downgrading another profile. Known incompatible combinations must be resolved before support is advertised.
 
@@ -77,7 +77,7 @@ RUN /opt/ubuntu-devcontainer-installers/installers/apt-packages/install.sh \
         --package ca-certificates --package curl --package gnupg \
     && /opt/ubuntu-devcontainer-installers/installers/node/install.sh --node-version 24 \
     && /opt/ubuntu-devcontainer-installers/installers/playwright-deps/install.sh \
-        --playwright-version 1.64.0 \
+        --playwright-version 1.64.1 \
     && /opt/ubuntu-devcontainer-installers/installers/user/install.sh
 
 USER dev
@@ -90,7 +90,7 @@ For OCI consumption, build and verify a development candidate through the [candi
 Run setup inside a writable project checkout as the development user. Initial package selection, which creates or updates the project manifest and lockfile, is explicit:
 
 ```bash
-npm install --save-dev --save-exact --ignore-scripts --min-release-age=7 @playwright/test@1.64.0
+npm install --save-dev --save-exact --ignore-scripts --min-release-age=7 @playwright/test@1.64.1
 ```
 
 Subsequent installs use the committed lockfile and do not select a new version:
@@ -225,7 +225,7 @@ Add the applicable entries to both `.gitignore` and `.dockerignore`; Git ignorin
 
 ## Known limitations
 
-Only the explicitly supported target is qualified. Upgrading a project package can require another Ubuntu dependency profile or image rebuild; local browser downloads do not establish operating-system compatibility. Unsupported targets fail rather than select the nearest supported profile.
+Only the two explicitly supported targets are qualified. Upgrading a project package can require another Ubuntu dependency profile or image rebuild; local browser downloads do not establish operating-system compatibility. Unsupported targets fail rather than select the nearest supported profile.
 
 The embedded `playwright cli` is included in the stable project-local Playwright package. The separately published `@playwright/cli` wrapper is not required or qualified here. In the reviewed `0.1.22` wrapper, underlying Playwright dependencies are alpha builds; do not substitute the wrapper's version for this installer's target or assume its browser requirements match stable Playwright.
 
