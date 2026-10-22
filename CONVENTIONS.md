@@ -472,6 +472,7 @@ An installer is complete when:
 Use the repository test entry points when available:
 
 ```bash
+./scripts/check.sh
 ./scripts/test-unit.sh
 ./scripts/test-integration.sh
 ./scripts/test.sh
@@ -480,7 +481,9 @@ Use the repository test entry points when available:
 
 Run focused tests while iterating and all affected scenarios before completion. Test from the packaged OCI layout whenever packaging can affect the change.
 
-The test runners accept suite names matching directories under `tests/unit/` and `tests/integration/`; the integration runner additionally accepts one target from the selected suite's `targets.txt`. Keep detailed failures under the top-level `tmp/` directory and terminal output concise. This directory is for development and test logs, not installer runtime temporary files.
+The test runners accept suite names matching directories under `tests/unit/` and `tests/integration/`; the integration runner additionally accepts one target from the selected suite's `targets.txt`. `scripts/check.sh` owns the common read-only static-check and unit-test gate; it is not integration qualification. Test-only execution helpers belong in `tests/lib/`, use descriptive kebab-case `.sh` filenames and follow shared-library function contracts where applicable. Validate scheduler changes with deterministic foundation fixtures, including concurrency bounds, failure aggregation, selector validation and interrupted-worker cleanup.
+
+Keep scheduling bounded, default to serial execution and keep qualification scenarios independent of scheduling. Only the coordinator may emit worker starts and results to the terminal; retain separate logs, explicit worker statuses and aggregate failure status. Distinguish test failures from unexecuted targets aborted after infrastructure loss; stop scheduling when backend unavailability is confirmed and collect active workers before reporting. Preserve no-cache integration qualification and runtime assertions. Keep detailed failures under the top-level `tmp/` directory and terminal output concise. This directory is for development and test logs, not installer runtime temporary files. The [testing guide](docs/testing.md#scheduling-and-output) owns concrete concurrency controls, output and interruption behaviour.
 
 ### Docker resources
 

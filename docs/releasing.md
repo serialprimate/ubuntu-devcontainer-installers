@@ -19,8 +19,10 @@ Administrators must preserve these settings. Release `0.1.0` completed the one-t
 2. Create an exact Semantic Versioning Git tag without a `v` prefix, such as `0.5.1`, at that commit. Do not move a published release tag.
 3. Draft a GitHub Release for that tag and publish it after approval.
 4. Approve the protected `release` environment deployment.
-5. Confirm the workflow passes source-tree tests, builds once, passes packaged-artefact tests, publishes the exact, minor and major tags, and verifies an anonymous digest pull.
+5. Confirm the workflow passes static/unit checks and complete source/nested qualification, builds once, passes packaged-artefact tests, publishes the exact, minor and major tags, and verifies an anonymous digest pull.
 6. Confirm the [qualification record](#qualification-record) and immutable identity are attached to the GitHub Release before treating publication as complete.
+
+Release verification and publication remain in one protected job so the approved revision, verified local candidate and complete qualification logs stay together. Like CI, the workflow uses `scripts/check.sh` for static/unit checks and the repository Actions variable `TEST_JOBS` for bounded execution, defaulting to 1. Increase that variable only after qualifying the intended runner; a successful higher-concurrency local run is not evidence that the same workload fits a smaller GitHub VM. The [testing guide](testing.md#scheduling-and-output) owns scheduling, output and infrastructure-abort behaviour.
 
 The workflow uses only the repository-scoped `GITHUB_TOKEN`. Its tag set comes from `scripts/release-tags.sh`: release `0.5.1` publishes `0.5.1`, `0.5` and `0`, all for the same verified image. It never publishes `latest`.
 
@@ -42,7 +44,7 @@ Before building or pushing, inspect the failed workflow and existing release not
 
 The following are consecutive Bash-session fragments run from the repository root, not an unattended publication script. Set `RELEASE_TAG` and `APPROVED_REVISION` to the approver-confirmed exact tag and full commit SHA before starting. Stop on any failed command or identity mismatch; do not substitute `HEAD` for an unknown approved revision.
 
-Validate recovery identity and retain complete source-tree qualification:
+Validate recovery identity and retain static/unit checks and complete source-tree qualification:
 
 ```bash
 set -euo pipefail
@@ -63,6 +65,7 @@ candidate="${image}:${RELEASE_TAG}"
 mkdir -p -- tmp
 recovery_directory="$(mktemp -d tmp/release-recovery.XXXXXX)"
 docker info >"${recovery_directory}/docker-info.log"
+./scripts/check.sh |& tee "${recovery_directory}/checks.log"
 ./scripts/test.sh |& tee "${recovery_directory}/source-tests.log"
 ```
 
@@ -107,7 +110,7 @@ A failed anonymous pull is an incomplete publication, not a passing release with
 
 The workflow and approved recovery must leave equivalent durable evidence in the existing GitHub Release:
 
-- `qualification-<version>.md`, containing the full source revision, immutable OCI reference, exact/minor/major tag set, resolved Ubuntu qualification image digest, `linux/amd64` target, Docker and builder version information, and complete source-tree and packaged-artefact command results.
+- `qualification-<version>.md`, containing the full source revision, immutable OCI reference, exact/minor/major tag set, resolved Ubuntu qualification image digest, `linux/amd64` target, Docker and builder version information, the selected worker bound (`TEST_JOBS`, or 1 when unset), and complete static/unit, source-tree and packaged-artefact command results.
 - An `OCI release identity` section containing the same immutable image digest and source revision, plus a link to that attached report.
 - Successful anonymous digest-pinned consumption, with any recovery approval and exceptional actions recorded without credentials or secret values.
 

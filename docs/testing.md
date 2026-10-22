@@ -4,7 +4,7 @@ The project test suite uses Bash, ordinary Ubuntu commands, Docker and project-o
 
 ## Prerequisites
 
-Unit tests require Bash and the ordinary development commands used by the runner. Integration tests additionally require a usable Docker endpoint:
+Test runners require Bash 5.1 or newer, `setsid` (from Ubuntu's `util-linux`) and ordinary development commands. The supported development container supplies these tools. Fast repository checks additionally use the existing `shfmt`, `shellcheck` and `markdownlint-cli2` tools. Integration tests additionally require a usable Docker endpoint:
 
 ```bash
 docker info
@@ -14,11 +14,28 @@ Integration tests pull and report the resolved `ubuntu:26.04` image used for qua
 
 ## Commands
 
-Run all tests:
+Run fast, Docker-free checks before committing, from any working directory (paths below assume the repository root):
+
+```bash
+./scripts/check.sh
+./scripts/check.sh foundation playwright-deps
+```
+
+`check.sh` checks all tracked and non-ignored untracked Bash and Markdown files, then runs all unit suites or the selected unit suites. It never changes formatting or installs tooling. This is an explicit pre-commit command, not an automatically installed Git hook, and it does not establish integration or release qualification.
+
+Run complete source and nested-daemon qualification:
 
 ```bash
 ./scripts/test.sh
 ```
+
+Run all source tests without nested qualification, for an independently scheduled CI gate:
+
+```bash
+./scripts/test.sh --source
+```
+
+With suite selectors, `test.sh [--source] SUITE...` runs each selected suite's unit and integration tests without nested qualification, preserving the focused interface. `--source` does not weaken the default complete entry point or the separate OCI verification gate.
 
 Run only the foundation suite:
 
@@ -55,7 +72,29 @@ Both scripts accept exactly `IMAGE VERSION REVISION`: the candidate image refere
 
 A development candidate is not a qualified release merely because its revision label names `HEAD`; uncommitted inputs may differ. Release candidates require the reviewed clean tagged checkout and approval gates in the [release guide](releasing.md).
 
-Detailed logs are retained under the top-level `tmp/` directory. The runners print the exact log path for a failed test.
+### Scheduling and output
+
+Run independent tests with an explicit concurrency bound:
+
+```bash
+TEST_JOBS=2 ./scripts/test-integration.sh
+TEST_JOBS=2 ./scripts/test-unit.sh
+TEST_JOBS=2 ./scripts/test.sh
+```
+
+`TEST_JOBS` accepts integers from 1 to 32 and defaults to 1. The same bound is forwarded into nested qualification and applies to packaged targets through `test-oci.sh`. It bounds whole test lifecycles, including build, runtime assertions and cleanup, not individual BuildKit operations. Within `test-unit.sh` and `test-integration.sh`, suites and targets are discovered in stable order and all selectors are validated before workers start or Docker is contacted; invalid configuration returns 2. Ordinary test failures do not stop remaining tests in that runner, and any failure makes the runner return non-zero. After a failed integration target, the coordinator checks Docker health with a ten-second timeout. If that check fails, it stops launching targets, collects active worker results and counts unstarted targets as aborted rather than failed. Aborted targets also make the runner return non-zero; they have not been tested. Higher-level wrappers execute gates in sequence and stop on failure: for example, `test.sh foundation missing` completes the foundation gates before rejecting the later selector. Nested qualification reports inner failures as a failed qualification gate, not necessarily the inner exit status.
+
+A single parent prints launch-order `START` lines with worker PIDs and active/maximum worker counts, then completion-order result lines, elapsed seconds, completed/total counts and final passed/failed/aborted totals. The completion counter is not a test's manifest position; overlapping tests can complete in any order. Workers never write directly to the terminal. Each has a separate named log in a unique directory under top-level `tmp/`; failures include the exact path, exit status and the last 40 log lines. Diagnostic lines are prefixed so test output cannot become GitHub workflow commands. Nested qualification streams its inner progress while retaining `qualification.log`, rather than remaining silent for the complete inner run. Nested log paths beginning `/source/tmp/` refer to the same repository's local `tmp/` directory through the source bind mount.
+
+Use the serial default on constrained VMs. Try two workers only after measuring memory, disk and elapsed time on the intended machine, especially for browser and privileged nested-Docker scenarios. More workers can increase contention, network traffic and disk usage rather than improve throughput. Image-tag removal does not guarantee BuildKit cache removal. Cold builds and all existing qualification coverage remain mandatory; no result depends on a warm cache.
+
+On INT or TERM, the coordinator terminates active worker process groups, allows two seconds for shutdown, then kills remaining group members and reaps workers. Workers and runtime hooks clean their owned resources on catchable exits. A daemon-side build can outlive its disconnected client, and forced termination cannot guarantee Docker cleanup. Do not run project-wide cleanup alongside active tests: it selects all project-labelled resources, including other runs. Inspect retained logs and use the documented cleanup command after runs have stopped.
+
+### GitHub CI
+
+Both CI and release workflows run `check.sh` before accepting qualification and read the repository Actions variable `TEST_JOBS`, falling back to 1 when it is unset. It has the same 1–32 validation as local execution. Keep it unset on unmeasured runners; increase it only after measuring the intended GitHub VM. The CI workflow schedules Docker-free checks, source integration, complete nested-daemon qualification and OCI candidate verification as separate jobs. Independent jobs can overlap on separate VMs without putting multiple heavy workloads on one constrained VM; GitHub concurrency quotas may queue them. The stable `Source and OCI verification` aggregate job succeeds only when every required job succeeds. The release workflow deliberately retains a single protected job: it runs static/unit checks, complete source and nested qualification, and packaged verification before publishing the same candidate. This keeps the approval boundary, local candidate identity and complete qualification logs together without introducing cross-job artifact transport. The configured worker bound applies to every release test phase, and the qualification report records it alongside static/unit, source and packaged results. See the [release guide](releasing.md) for approval and recovery requirements.
+
+Failure tails appear directly in CI output. Full `tmp/` logs remain local to the runner; they are not uploaded as artifacts by this workflow. Automatic artifact upload would require approval for an additional action dependency. Local commands and CI share the same scripts and qualification scenarios; concurrency changes scheduling, not acceptance criteria.
 
 ## Unit suite layout
 
@@ -68,7 +107,7 @@ An integration suite contains:
 - `tests/integration/<suite>/Dockerfile`; and
 - `tests/integration/<suite>/targets.txt`, with one Docker build target per non-blank line.
 
-Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, a unique image tag and project and test-run OCI labels. A suite may add executable `run-target.sh` runtime assertions; the runner supplies the built image, target and required resource labels. The `container-services` suite uses trusted fake adapters to qualify ordered startup, readiness, rollback, reverse shutdown, signal forwarding, read-only non-root wait/status, stale state and the documented outer-runtime forced-termination limitation. Docker-in-Docker lifecycle assertions use this hook to run the installed image with the documented privilege and explicit startup and shutdown, retaining manual and automatic adapter paths.
+Every target starts from a fresh Ubuntu 26.04 build stage. The runner builds targets independently with `--no-cache`, plain BuildKit logs, a unique image tag and project and test-run OCI labels. The shared scheduler lives in `tests/lib/test-runner.sh`; `tests/lib/integration-target.sh` owns one target's build, runtime assertions and image-tag cleanup. Add scenarios through the existing suite files and manifests rather than adding another scheduler. A suite may add executable `run-target.sh` runtime assertions; the runner supplies the built image, target and required resource labels. The `container-services` suite uses trusted fake adapters to qualify ordered startup, readiness, rollback, reverse shutdown, signal forwarding, read-only non-root wait/status, stale state and the documented outer-runtime forced-termination limitation. Docker-in-Docker lifecycle assertions use this hook to run the installed image with the documented privilege and explicit startup and shutdown, retaining manual and automatic adapter paths.
 
 ## Playwright dependency qualification
 
