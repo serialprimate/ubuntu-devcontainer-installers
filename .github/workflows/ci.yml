@@ -16,23 +16,72 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Increase only after measuring the intended runner; CI jobs already run independently.
+  TEST_JOBS: ${{ vars.TEST_JOBS || '1' }}
+
 jobs:
-  verify:
-    name: Source and OCI verification
+  checks:
+    name: Static and unit checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install existing repository check tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck shfmt
+          npm install --global --ignore-scripts --no-audit --no-fund markdownlint-cli2@0.23.3
+
+      - name: Run Docker-free pre-commit checks
+        run: ./scripts/check.sh
+
+  source:
+    name: Source integration
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Check out the source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Verify the Docker endpoint
-        run: docker info
+      - name: Run all source integration targets
+        run: ./scripts/test-integration.sh
 
-      - name: Run source-tree tests
-        run: ./scripts/test.sh
+  nested:
+    name: Nested Docker qualification
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out the source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run the complete suite through a fresh nested daemon
+        run: ./scripts/test-docker-in-docker.sh
+
+  oci:
+    name: OCI verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build the OCI candidate once
         run: ./scripts/build-oci.sh ubuntu-devcontainer-installers:ci 0.0.0 "${GITHUB_SHA}"
 
       - name: Verify OCI metadata and packaged artefact
         run: ./scripts/test-oci.sh ubuntu-devcontainer-installers:ci 0.0.0 "${GITHUB_SHA}"
+
+  verify:
+    name: Source and OCI verification
+    needs: [checks, source, nested, oci]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every verification job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: test "${RESULTS}" = 'success,success,success,success'

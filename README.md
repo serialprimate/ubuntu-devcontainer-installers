@@ -195,7 +195,14 @@ Development takes place in an Ubuntu 26.04 Dev Container with Bash, Git, Docker 
 docker info
 ```
 
-Use these test interfaces:
+Run fast Docker-free checks before committing; the optional suite selectors restrict unit tests, not repository lint checks:
+
+```bash
+./scripts/check.sh
+./scripts/check.sh foundation playwright-deps
+```
+
+Use these qualification interfaces:
 
 ```bash
 ./scripts/test-unit.sh
@@ -205,7 +212,7 @@ Use these test interfaces:
 ./scripts/clean-test-resources.sh
 ```
 
-Unit tests use Bash and project-owned assertion helpers without changing the development container's operating-system state. Integration targets run as independent, no-cache builds from Ubuntu 26.04. Test cleanup targets only project-labelled Docker resources and does not run `docker system prune`. See the [testing guide](docs/testing.md) for suite layout, selectors and logs.
+Unit tests use Bash and project-owned assertion helpers without changing the development container's operating-system state. Integration targets run as independent, no-cache builds from Ubuntu 26.04. Runners default to serial execution; `TEST_JOBS=2` opts into bounded parallelism with coordinated progress and separate per-test logs. CI separates independent qualification gates onto separate VMs. Both CI and release qualification retain the serial default unless the repository Actions variable `TEST_JOBS` selects a measured higher bound. Fast checks are not full qualification. Test cleanup targets only project-labelled Docker resources and does not run `docker system prune`; do not run it alongside active tests. See the [testing guide](docs/testing.md) for scheduling, prerequisites, suite layout, selectors, CI and logs.
 
 ## Contributing
 

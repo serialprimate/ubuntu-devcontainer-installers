@@ -5,6 +5,9 @@ set -euo pipefail
 
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly repository_root
+# shellcheck source=tests/lib/test-runner.sh
+source "${repository_root}/tests/lib/test-runner.sh"
+test_runner_validate_jobs docker-in-docker
 readonly project_label='io.github.serialprimate.project=ubuntu-devcontainer-installers'
 readonly source_label='org.opencontainers.image.source=https://github.com/serialprimate/ubuntu-devcontainer-installers'
 run_id="dind-qualification-$(date -u +%Y%m%d%H%M%S)-$$-${RANDOM}"
@@ -25,6 +28,7 @@ cleanup() {
 trap cleanup EXIT
 
 # Build the installed qualification environment from the ordinary integration Dockerfile
+printf 'Docker-in-Docker qualification: building environment (log: %s)\n' "${log_path}"
 if ! docker build \
     --pull \
     --no-cache \
@@ -38,6 +42,9 @@ if ! docker build \
     "${repository_root}" >"${log_path}" 2>&1; then
     printf 'docker-in-docker qualification: error: image build failed (log: %s)\n' \
         "${log_path}" >&2
+    tail -n 40 -- "${log_path}" | while IFS= read -r line; do
+        printf '  | %s\n' "${line}"
+    done
     exit 1
 fi
 
@@ -52,6 +59,7 @@ if ! docker run --rm --privileged \
     --mount type=volume,destination=/var/lib/docker-in-docker \
     --workdir /source \
     --env DIND_QUALIFICATION_ACTIVE=1 \
+    --env "TEST_JOBS=${TEST_JOBS:-1}" \
     "${image}" \
     bash -euo pipefail -c '
         cleanup_daemon() {
@@ -63,7 +71,9 @@ if ! docker run --rm --privileged \
         ./scripts/test.sh
         docker-in-docker stop
         trap - EXIT
-    ' >>"${log_path}" 2>&1; then
+    ' 2>&1 | tee -a "${log_path}" | while IFS= read -r line; do
+    printf 'nested | %s\n' "${line}"
+done; then
     printf 'docker-in-docker qualification: error: complete nested suite failed (log: %s)\n' \
         "${log_path}" >&2
     exit 1

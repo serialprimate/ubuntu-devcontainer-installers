@@ -11,6 +11,10 @@ concurrency:
   group: release-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
+env:
+  # Keep release qualification within the protected job and bound each runner's workload.
+  TEST_JOBS: ${{ vars.TEST_JOBS || '1' }}
+
 jobs:
   publish:
     name: Verify and publish approved release
@@ -34,11 +38,23 @@ jobs:
 
       - name: Validate the approved release identity
         run: |
-          mapfile -t release_tags < <(./scripts/release-tags.sh "${RELEASE_TAG}")
+          release_tag_output="$(./scripts/release-tags.sh "${RELEASE_TAG}")"
+          mapfile -t release_tags <<<"${release_tag_output}"
           source_revision="$(git rev-parse HEAD)"
           test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" = "${source_revision}"
           printf 'SOURCE_REVISION=%s\n' "${source_revision}" >> "${GITHUB_ENV}"
           printf '%s\n' "${release_tags[@]}" > "${RUNNER_TEMP}/release-tags.txt"
+
+      - name: Install existing repository check tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck shfmt
+          npm install --global --ignore-scripts --no-audit --no-fund markdownlint-cli2@0.23.3
+
+      - name: Run Docker-free pre-commit checks
+        run: |
+          set -o pipefail
+          ./scripts/check.sh |& tee "${RUNNER_TEMP}/checks.log"
 
       - name: Verify the Docker endpoint
         run: docker info
@@ -111,9 +127,13 @@ jobs:
               printf -- '- Target architecture: `linux/amd64`\n'
               printf -- '- Docker version: `%s`\n' "$(docker version --format '{{.Server.Version}}')"
               printf -- '- Buildx version: `%s`\n' "$(docker buildx version)"
+              printf -- '- Test workers per runner: `%s`\n' "${TEST_JOBS}"
+              printf -- '- Static and unit checks: passed\n'
               printf -- '- Source-tree tests: passed\n'
               printf -- '- Packaged-artefact tests: passed\n\n'
-              printf '## Complete source-tree test result\n\n```text\n'
+              printf '## Complete static and unit check result\n\n```text\n'
+              cat "${RUNNER_TEMP}/checks.log"
+              printf '```\n\n## Complete source-tree test result\n\n```text\n'
               cat "${RUNNER_TEMP}/source-tests.log"
               printf '```\n\n## Complete packaged-artefact test result\n\n```text\n'
               cat "${RUNNER_TEMP}/packaged-tests.log"

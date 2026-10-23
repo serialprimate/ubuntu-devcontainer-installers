@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Runs selected dependency-free unit suites and retains per-test failure logs.
+# Runs selected dependency-free unit suites with bounded workers and per-test logs.
 
-# Initialise repository and run-scoped state
+# Initialise repository and shared scheduling without requiring Docker
 repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly repository_root
-run_id="unit-$(date -u +%Y%m%d%H%M%S)-$$-${RANDOM}"
-readonly run_id
-readonly temporary_directory="${repository_root}/tmp"
-readonly log_directory="${temporary_directory}/${run_id}"
-mkdir -p -- "${log_directory}"
+# shellcheck source=tests/lib/test-runner.sh
+source "${repository_root}/tests/lib/test-runner.sh"
+test_runner_init unit "${repository_root}"
 
-# With no selector, discover every suite while preserving lexical glob order.
+# Discover suites in lexical order when the caller supplies no selectors
 selected_suites=("$@")
 if ((${#selected_suites[@]} == 0)); then
     for suite_path in "${repository_root}"/tests/unit/*; do
@@ -21,49 +19,31 @@ if ((${#selected_suites[@]} == 0)); then
         fi
     done
 fi
-
 if ((${#selected_suites[@]} == 0)); then
     printf 'unit: error: no unit test suites found\n' >&2
     exit 2
 fi
 
-# Run every test independently so one failure does not hide later results.
-passed=0
-failed=0
+# Validate the complete selection before starting any worker
 for suite in "${selected_suites[@]}"; do
     suite_directory="${repository_root}/tests/unit/${suite}"
-    if [[ ! -d "${suite_directory}" ]]; then
+    if [[ ! "${suite}" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ || ! -d "${suite_directory}" ]]; then
         printf 'unit: error: unknown unit test suite: %s\n' "${suite}" >&2
         exit 2
     fi
-
-    test_files=()
+    test_count=0
     for test_file in "${suite_directory}"/*-test.sh; do
         if [[ -f "${test_file}" ]]; then
-            test_files+=("${test_file}")
+            test_runner_add "${suite}/${test_file##*/}" bash "${test_file}"
+            ((test_count += 1))
         fi
     done
-
-    if ((${#test_files[@]} == 0)); then
+    if ((test_count == 0)); then
         printf 'unit: error: no tests found in suite: %s\n' "${suite}" >&2
         exit 2
     fi
-
-    for test_file in "${test_files[@]}"; do
-        test_name="${suite}/${test_file##*/}"
-        log_path="${log_directory}/${suite}-${test_file##*/}.log"
-        if bash "${test_file}" >"${log_path}" 2>&1; then
-            printf 'PASS unit %s\n' "${test_name}"
-            ((passed += 1))
-        else
-            printf 'FAIL unit %s (log: %s)\n' "${test_name}" "${log_path}" >&2
-            ((failed += 1))
-        fi
-    done
 done
 
-# Report the aggregate result after attempting every valid test
-printf 'Unit tests: %d passed, %d failed\n' "${passed}" "${failed}"
-if ((failed > 0)); then
-    exit 1
-fi
+# Report every result without a backend health command for dependency-free unit tests
+# shellcheck disable=SC2119
+test_runner_run
