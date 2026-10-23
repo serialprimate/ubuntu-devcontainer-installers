@@ -18,7 +18,8 @@ readonly container="ubuntu-devcontainer-installers-${run_id}"
 readonly temporary_directory="${repository_root}/tmp"
 readonly log_directory="${temporary_directory}/${run_id}"
 readonly log_path="${log_directory}/qualification.log"
-mkdir -p -- "${log_directory}"
+readonly work_directory="${log_directory}/work"
+mkdir -p -- "${work_directory}"
 
 # Remove only this run's disposable outer resources on every exit path
 cleanup() {
@@ -48,14 +49,15 @@ if ! docker build \
     exit 1
 fi
 
+# Keep source read-only and confine nested test writes to this run's workspace
 # Start the installed daemon, run every project test through it and stop it explicitly
 if ! docker run --rm --privileged \
     --name "${container}" \
     --label "${source_label}" \
     --label "${project_label}" \
     --label "${run_label}" \
-    --mount "type=bind,source=${repository_root},target=/source" \
-    --mount "type=bind,source=${log_directory},target=/source/tmp/${run_id}" \
+    --mount "type=bind,source=${repository_root},target=/source,readonly" \
+    --mount "type=bind,source=${work_directory},target=/source/tmp" \
     --mount type=volume,destination=/var/lib/docker-in-docker \
     --workdir /source \
     --env DIND_QUALIFICATION_ACTIVE=1 \
