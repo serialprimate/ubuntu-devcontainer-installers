@@ -203,6 +203,18 @@ assert_contains 'nested | fixture nested progress' "${output}"
 calls="$(<"${workspace}/docker-calls")"
 assert_contains '--env TEST_JOBS=2' "${calls}"
 assert_contains '--env DIND_QUALIFICATION_ACTIVE=1' "${calls}"
+expected_uid="$(id -u)"
+expected_gid="$(id -g)"
+if [[ "${expected_uid}" == '0' ]]; then
+    expected_uid=1000
+    expected_gid=1000
+fi
+assert_contains "--env QUALIFICATION_UID=${expected_uid}" "${calls}"
+assert_contains "--env QUALIFICATION_GID=${expected_gid}" "${calls}"
+assert_contains 'groupadd --non-unique' "${calls}"
+assert_contains 'useradd --non-unique' "${calls}"
+assert_contains 'runuser --user qualification -- git config --global --add safe.directory /source' "${calls}"
+assert_contains 'runuser --user qualification -- ./scripts/test.sh' "${calls}"
 assert_contains "type=bind,source=${workspace},target=/source,readonly" "${calls}"
 qualification_workspaces=("${workspace}"/tmp/dind-qualification-*/work)
 assert_equal 1 "${#qualification_workspaces[@]}"
