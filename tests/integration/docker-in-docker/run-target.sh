@@ -29,8 +29,8 @@ trap cleanup EXIT
 
 if [[ "${target}" == 'missing-data-volume-failure' ]]; then
 
-    # Prove startup rejects outer containers without the required dedicated data mount
-    docker run --rm --privileged \
+    # Prove startup rejects a missing data mount without requiring privileged mode
+    docker run --rm \
         --name "${container_name}" \
         --label "${source_label}" \
         --label "${project_label}" \
