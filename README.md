@@ -3,7 +3,7 @@
 Reusable Bash installers for constructing Ubuntu 26.04 development-container images.
 
 > [!IMPORTANT]
-> Release `0.5.1` is available from GHCR. For reproducible builds, use its immutable digest rather than a mutable convenience tag.
+> Collection version: `0.6.0`. For reproducible OCI consumption, use the immutable digest from the release's verified qualification record. Registry publication is a separate approved workflow; a source version does not establish registry availability.
 
 ## Motivation
 
@@ -51,7 +51,7 @@ Installers must reject unsupported operating systems and Ubuntu releases rather 
 
 ## Installer status
 
-The released installer collection is available from the source tree and the published OCI image. Entries marked source-only are not included in published release `0.5.1`:
+The `0.6.0` collection includes all installers below in both the source tree and the OCI payload. Registry consumption requires completed [release publication](docs/releasing.md):
 
 | Installer | Purpose | Status |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ The released installer collection is available from the source tree and the publ
 | [`npm-packages`](installers/npm-packages/README.md) | Install explicit global npm packages | Updated in 0.4.0 |
 | [`pipx`](installers/pipx/README.md) | Install a selected pipx release | Released in 0.1.0 |
 | [`pipx-packages`](installers/pipx-packages/README.md) | Install explicit pipx applications | Released in 0.1.0 |
-| [`playwright-deps`](installers/playwright-deps/README.md) | Install reviewed Ubuntu dependencies for project-local Chromium and Playwright CLI | Source-only; unreleased |
+| [`playwright-deps`](installers/playwright-deps/README.md) | Install reviewed Ubuntu dependencies for project-local Chromium and Playwright CLI | Added in 0.6.0 |
 | [`user`](installers/user/README.md) | Establish a development user, group and optional sudo access | Released in 0.1.0 |
 
 Playwright projects keep their JavaScript or TypeScript tests, npm packages and browser downloads local to the project; `playwright-deps` installs only Ubuntu dependencies for an exact supported target. It does not install a global Playwright command or browsers. See its README for the two project-local browser storage patterns and the [qualification guide](docs/testing.md#playwright-dependency-qualification).
@@ -93,7 +93,7 @@ Array inputs use repeatable singular options, preserving each argument literally
 
 Installers do not infer or silently install unrelated prerequisite toolchains. For example, `npm-packages` requires Node.js and npm first, while `pipx` requires Ubuntu Python and virtual environment support.
 
-The released `0.5.0` collection provides an optional `container-services` orchestrator for justified co-location, and `0.5.1` fixes Docker-in-Docker readiness checks for the non-root development user. Service installers provide manual lifecycle commands and trusted `start`, `stop` and `status` adapters independently; the consuming Dockerfile explicitly registers a complete ordered list. Installation never registers or starts a service.
+The collection provides an optional `container-services` orchestrator for justified co-location, introduced in `0.5.0`, with non-root Docker-in-Docker readiness fixes from `0.5.1`. Service installers provide manual lifecycle commands and trusted `start`, `stop` and `status` adapters independently; the consuming Dockerfile explicitly registers a complete ordered list. Installation never registers or starts a service.
 
 ## Security and controlled-risk functionality
 
@@ -113,14 +113,16 @@ Risky behaviour must never become an implicit fallback when a secure operation f
 
 The release artefact is one small `FROM scratch` OCI image containing the complete qualified installer collection, shared libraries, documentation and licence. It is not a runtime image. Approved releases are published at `ghcr.io/serialprimate/ubuntu-devcontainer-installers` by GitHub Actions.
 
-A consuming Dockerfile can copy the collection from the published exact version:
+After publication, a consuming Dockerfile can copy collection version `0.6.0`. The build argument also permits a verified digest-pinned reference without editing the Dockerfile:
 
 ```dockerfile
 # syntax=docker/dockerfile:1
 # check=error=true
 
+ARG INSTALLERS_IMAGE=ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.6.0
+
 # Provides the versioned installer payload
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers:0.5.1 AS installers
+FROM ${INSTALLERS_IMAGE} AS installers
 
 # Builds the development image from the supported Ubuntu release
 FROM ubuntu:26.04
@@ -144,14 +146,7 @@ RUN /opt/ubuntu-devcontainer-installers/installers/apt-packages/install.sh \
         --package eslint
 ```
 
-For reproducible builds, use this digest-pinned `COPY` fragment:
-
-```dockerfile
-# Copies the digest-pinned payload while preserving bundled-library paths
-COPY --from=ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:d57b09b76ec4914c949b32587ce3e9557e4022dba27564d28c95fccd674dbba1 \
-    /ubuntu-devcontainer-installers \
-    /opt/ubuntu-devcontainer-installers
-```
+For reproducible builds, set the `INSTALLERS_IMAGE` build argument to the complete immutable image reference from the `0.6.0` GitHub Release's `OCI release identity` section. The [release qualification record](docs/releasing.md#qualification-record) binds that digest to the reviewed revision and test results. Do not reuse the `0.5.1` digest for `0.6.0`: it identifies a different payload that does not contain `playwright-deps`.
 
 An exact Semantic Versioning tag may be used when digest management is impractical. Reproducible examples will not use a floating `latest` tag.
 
@@ -165,7 +160,7 @@ The collection uses one Semantic Versioning release version. During initial deve
 
 A release must pass source-tree and packaged-artefact tests against Ubuntu 26.04. Qualification records the Ubuntu image digest, target architecture, Docker and BuildKit versions, repository commit and complete test result. The published OCI digest is the immutable release identity.
 
-The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.5.1` publishes `0.5.1`, `0.5` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
+The approved GitHub Release workflow publishes exact, minor and major tags from an exact SemVer Git tag. For example, `0.6.0` publishes `0.6.0`, `0.6` and `0`, all for the same verified image. It records the digest and source revision in the GitHub Release and attaches the full qualification report. See the [release guide](docs/releasing.md).
 
 ## Repository layout
 
@@ -227,5 +222,7 @@ Before changing installer behaviour:
 Implementation migration is intentionally greenfield. Only eligible installation logic and adapted top-level documentation from the predecessor repository may be reused; its Dev Container Feature packaging, metadata, generated documentation, tests, helpers, workflows and repository layout are not implementation starting points.
 
 ## Project status
+
+Collection release `0.6.0` adds `playwright-deps` for exact Playwright targets `1.64.0` and `1.64.1` (default), with project-owned npm packages and Chromium downloads. It also includes bounded test-runner concurrency and nested-qualification workspace and non-root execution improvements. See the [0.6.0 release scope and publication conditions](docs/releasing.md#060-release) for verification and publication requirements. The development profiles remain pinned to `0.5.1` independently of this collection version; migrating them requires verified publication and profile qualification.
 
 Releases `0.1.0`, `0.2.0`, `0.3.0`, `0.4.0`, `0.5.0` and `0.5.1` were produced by the approved workflow and are publicly available from GHCR by exact version, convenience tags and immutable digest. Release `0.2.0` added the Docker-in-Docker installer, release `0.3.0` added the narrow `github-release` artifact installer, release `0.4.0` updated the `npm-packages` installer with explicit package lifecycle-script opt-in, release `0.5.0` added the `container-services` orchestrator and Docker-in-Docker service adapter, and release `0.5.1` fixed non-root Docker-in-Docker readiness checks. Generic installation-script execution is not supported because a pinned bootstrap script cannot guarantee transitive download integrity, and no unverified execution mode is approved.

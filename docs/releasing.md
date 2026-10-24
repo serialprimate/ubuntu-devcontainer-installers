@@ -13,10 +13,25 @@ The first publication established these required repository settings:
 
 Administrators must preserve these settings. Release `0.1.0` completed the one-time GHCR visibility bootstrap; later releases verify anonymous digest-pinned access automatically. An installed client is not proof that its credentials, repository permissions or registry access are available.
 
+## 0.6.0 release
+
+The current collection version is `0.6.0`, an additive minor release under the [collection versioning policy](../README.md#versioning-and-release-qualification). Source and OCI consumption documentation use this version; registry publication still requires the normal approval and qualification procedure below. This release scope is not a qualification record.
+
+The release scope since `0.5.1` is:
+
+- Add `playwright-deps`, a dependency-only installer for project-owned Chromium and Chromium Headless Shell, supporting exact Playwright `1.64.0` and `1.64.1` targets with `1.64.1` the default. It installs neither npm packages nor browsers and adds no browser service or automatic runtime hook.
+- Add bounded test concurrency through `TEST_JOBS`, coordinated output and per-test logs, with serial execution still the default. CI separates independent qualification gates; release qualification remains in one protected job.
+- Run nested qualification as a non-root account matching the caller's UID/GID (1000 for a root caller), with read-only source mounts and an isolated writable workspace. Installer and service assertions continue inside disposable images.
+- Standardise development/test logs under top-level `tmp/` without changing installer runtime temporary-file handling.
+
+Before publication, complete the normal release procedure below against the reviewed clean tagged revision. The [Playwright implementation record](playwright-plan.md#status-and-outcome) retains earlier Ubuntu repository metadata download failures and the subsequent successful complete development run with `TEST_JOBS=4`. Development checks do not replace clean source, nested and packaged qualification of the approved release revision; no gate is waived.
+
+After the workflow verifies publication, record the verified immutable `0.6.0` identity in the root README's OCI consumption guidance and confirm availability statements against the GitHub Release qualification record. Close the Playwright plan's publication gate only after its conditions are met. Keep historical release references intact. Development-profile digest migration additionally requires the [profile qualification procedure](testing.md#development-profile-qualification) and its approval; updating the collection version alone does not authorise it.
+
 ## Normal release
 
 1. Confirm the default branch passes continuous integration and identify the reviewed commit to release.
-2. Create an exact Semantic Versioning Git tag without a `v` prefix, such as `0.5.1`, at that commit. Do not move a published release tag.
+2. Create an exact Semantic Versioning Git tag without a `v` prefix, such as `0.6.0`, at that commit. Do not move a published release tag.
 3. Draft a GitHub Release for that tag and publish it after approval.
 4. Approve the protected `release` environment deployment.
 5. Confirm the workflow passes static/unit checks and complete source/nested qualification, builds once, passes packaged-artefact tests, publishes the exact, minor and major tags, and verifies an anonymous digest pull.
@@ -24,7 +39,7 @@ Administrators must preserve these settings. Release `0.1.0` completed the one-t
 
 Release verification and publication remain in one protected job so the approved revision, verified local candidate and complete qualification logs stay together. Like CI, the workflow uses `scripts/check.sh` for static/unit checks and the repository Actions variable `TEST_JOBS` for bounded execution, defaulting to 1. Increase that variable only after qualifying the intended runner; a successful higher-concurrency local run is not evidence that the same workload fits a smaller GitHub VM. The [testing guide](testing.md#scheduling-and-output) owns scheduling, output and infrastructure-abort behaviour.
 
-The workflow uses only the repository-scoped `GITHUB_TOKEN`. Its tag set comes from `scripts/release-tags.sh`: release `0.5.1` publishes `0.5.1`, `0.5` and `0`, all for the same verified image. It never publishes `latest`.
+The workflow uses only the repository-scoped `GITHUB_TOKEN`. Its tag set comes from `scripts/release-tags.sh`: release `0.6.0` publishes `0.6.0`, `0.6` and `0`, all for the same verified image. It never publishes `latest`.
 
 If any gate fails, retain the logs and classify the failure before rerunning. Apply the publication-state conditions under [Failed publication recovery](#failed-publication-recovery) before rerunning the job. Partial tag publication or a successful authenticated push does not establish public availability or completion. Do not bypass an approval or failed verification to finish a release.
 

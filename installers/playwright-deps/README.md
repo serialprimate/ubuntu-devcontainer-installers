@@ -4,7 +4,7 @@
 
 Installs the reviewed Ubuntu libraries, fonts and tools for bundled Chromium and Chromium Headless Shell. Projects separately own their Playwright npm packages, JavaScript or TypeScript tests, browser downloads and browser storage. The installer does not install Node.js, npm packages, browser binaries, a global `playwright` command or a browser service.
 
-This installer is available in the source tree and development OCI candidates only. Published collection release `0.5.1` does not contain it.
+Included in collection version `0.6.0`, in both the source tree and OCI payload. Older collection releases do not contain this installer. Registry consumption requires verified publication through the [release procedure](../../docs/releasing.md).
 
 ## Supported platform
 
@@ -63,7 +63,7 @@ Project lockfiles verify npm package content against registry integrity metadata
 
 ### Compose image components explicitly
 
-The following is a focused source-tree Dockerfile fragment for an existing Ubuntu 26.04 stage configured with `SHELL ["/bin/bash", "-euo", "pipefail", "-c"]`. Its build context is this repository's root. It does not imply the new installer exists in release `0.5.1`:
+The following is a focused source-tree Dockerfile fragment for an existing Ubuntu 26.04 stage configured with `SHELL ["/bin/bash", "-euo", "pipefail", "-c"]`. Its build context is the `0.6.0` repository root:
 
 ```dockerfile
 # Copies the source collection with its installer-relative bundled-library layout
@@ -83,7 +83,7 @@ RUN /opt/ubuntu-devcontainer-installers/installers/apt-packages/install.sh \
 USER dev
 ```
 
-For OCI consumption, build and verify a development candidate through the [candidate interfaces](../../docs/testing.md#oci-candidate-verification). After an approved release includes the installer, copy the collection from its qualified immutable digest instead of the source tree. Do not update production publication references or development profiles merely to try an unreleased installer.
+For OCI consumption, use collection `0.6.0` through the [root README's consumption example](../../README.md#oci-consumption), preferably pinned to its qualified immutable digest after publication. Local candidates can be built and verified through the [candidate interfaces](../../docs/testing.md#oci-candidate-verification); they do not establish registry availability or authorise development-profile migration.
 
 ### Establish project-owned packages and command resolution
 
