@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# Provides the 0.5.1 installer payload by immutable release identity
-FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:d57b09b76ec4914c949b32587ce3e9557e4022dba27564d28c95fccd674dbba1 AS installers
+# Provides the 0.6.0 installer payload by immutable release identity
+FROM ghcr.io/serialprimate/ubuntu-devcontainer-installers@sha256:66f13b4d67a486160a5b957ff9284fc46b9ec75e55116d4ce69dacf8f86e1f38 AS installers
 
 # Builds the public development environment on the supported Ubuntu release
 FROM ubuntu:26.04

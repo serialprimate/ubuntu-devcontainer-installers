@@ -15,7 +15,7 @@ Administrators must preserve these settings. Release `0.1.0` completed the one-t
 
 ## 0.6.0 release
 
-The current collection version is `0.6.0`, an additive minor release under the [collection versioning policy](../README.md#versioning-and-release-qualification). Source and OCI consumption documentation use this version; registry publication still requires the normal approval and qualification procedure below. This release scope is not a qualification record.
+The current collection version is `0.6.0`, an additive minor release under the [collection versioning policy](../README.md#versioning-and-release-qualification). The published image identity and qualification record are available in the [GitHub Release](https://github.com/serialprimate/ubuntu-devcontainer-installers/releases/tag/0.6.0). This release scope is not itself a qualification record.
 
 The release scope since `0.5.1` is:
 
